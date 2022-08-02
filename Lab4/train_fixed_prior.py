@@ -54,7 +54,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def train(x, cond, modules, optimizer, kl_anneal, args):
+def train(x, cond, modules, optimizer, kl_anneal, args, epoch):
     modules['frame_predictor'].zero_grad()
     modules['posterior'].zero_grad()
     modules['encoder'].zero_grad()
@@ -66,26 +66,55 @@ def train(x, cond, modules, optimizer, kl_anneal, args):
     mse = 0
     kld = 0
     use_teacher_forcing = True if random.random() < args.tfr else False
-    for i in range(1, args.n_past + args.n_future):
-        raise NotImplementedError
 
-    beta = kl_anneal.get_beta()
+    h_seq = [modules['encoder'](x[i]) for i in range(args.n_past + args.n_future)]
+
+
+    for i in range(1, args.n_past + args.n_future):
+        
+        h_target = h_seq[i][0]
+        if args.last_frame_skip or i < args.n_past:	
+            h, skip = h_seq[i-1]
+        else:
+            h = h_seq[i-1][0]
+        z_t, mu, logvar = modules['posterior'](h_target)
+        h_pred = modules['frame_predictor'](torch.cat([h, z_t], 1))
+        x_pred = modules['decoder']([h_pred, skip])
+        mse += mse_criterion(x_pred, x[i])
+        kld += kl_criterion(mu, logvar)
+
+    beta = kl_anneal.get_beta("monotonic", epoch)
     loss = mse + kld * beta
     loss.backward()
 
     optimizer.step()
 
     return loss.detach().cpu().numpy() / (args.n_past + args.n_future), mse.detach().cpu().numpy() / (args.n_past + args.n_future), kld.detach().cpu().numpy() / (args.n_future + args.n_past)
+    raise NotImplementedError
+
+mse_criterion = nn.MSELoss()
 
 class kl_annealing():
     def __init__(self, args):
         super().__init__()
-        raise NotImplementedError
+        self.beta = args.beta
+        # raise NotImplementedError
     
     def update(self):
         raise NotImplementedError
     
-    def get_beta(self):
+    def get_beta(self, mode, epochs):
+        if mode == "monotonic":
+            if epochs > 20:
+                beta = 1
+            else:
+                beta = 0.05 * epochs
+        else: #"cyclical"
+            if epochs % 20 > 10:
+                beta = 1
+            else:
+                beta = 0.1 * epochs
+        return beta
         raise NotImplementedError
 
 
@@ -162,6 +191,7 @@ def main():
     posterior.to(device)
     encoder.to(device)
     decoder.to(device)
+    mse_criterion.to(device)
 
     # --------- load a dataset ------------------------------------
     train_data = bair_robot_pushing_dataset(args, 'train')
@@ -224,7 +254,7 @@ def main():
                 train_iterator = iter(train_loader)
                 seq, cond = next(train_iterator)
             
-            loss, mse, kld = train(seq, cond, modules, optimizer, kl_anneal, args)
+            loss, mse, kld = train(seq, cond, modules, optimizer, kl_anneal, args, _)
             epoch_loss += loss
             epoch_mse += mse
             epoch_kld += kld
