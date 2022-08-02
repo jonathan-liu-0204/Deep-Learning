@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument('--niter', type=int, default=300, help='number of epochs to train for')
     parser.add_argument('--epoch_size', type=int, default=600, help='epoch size')
     parser.add_argument('--tfr', type=float, default=1.0, help='teacher forcing ratio (0 ~ 1)')
-    parser.add_argument('--tfr_start_decay_epoch', type=int, default=0, help='The epoch that teacher forcing ratio become decreasing')
+    parser.add_argument('--tfr_start_decay_epoch', type=int, default=0, help='The epoch that teacher forcieng ratio become decrasing')
     parser.add_argument('--tfr_decay_step', type=float, default=0, help='The decay step size of teacher forcing ratio (0 ~ 1)')
     parser.add_argument('--tfr_lower_bound', type=float, default=0, help='The lower bound of teacher forcing ratio for scheduling teacher forcing ratio (0 ~ 1)')
     parser.add_argument('--kl_anneal_cyclical', default=False, action='store_true', help='use cyclical mode')
@@ -85,6 +85,14 @@ def train(x, cond, modules, optimizer, kl_anneal, args, epoch):
 
     beta = kl_anneal.get_beta("monotonic", epoch)
     loss = mse + kld * beta
+
+    if use_teacher_forcing:
+        # Apply Teacher Forcing
+
+    else:
+        # Not Apply Teacher Forcing
+
+
     loss.backward()
 
     optimizer.step()
@@ -237,6 +245,8 @@ def main():
 
     progress = tqdm(total=args.niter)
     best_val_psnr = 0
+    tfr_value = args.tfr
+
     for epoch in range(start_epoch, start_epoch + niter):
         frame_predictor.train()
         posterior.train()
@@ -254,14 +264,19 @@ def main():
                 train_iterator = iter(train_loader)
                 seq, cond = next(train_iterator)
             
-            loss, mse, kld = train(seq, cond, modules, optimizer, kl_anneal, args, _)
+            loss, mse, kld = train(seq, cond, modules, optimizer, kl_anneal, args, epoch)
             epoch_loss += loss
             epoch_mse += mse
             epoch_kld += kld
         
         if epoch >= args.tfr_start_decay_epoch:
             ### Update teacher forcing ratio ###
-            raise NotImplementedError
+
+            tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
+
+            if tfr_value < args.tfr_lower_bound:
+                tfr_value = args.tfr_lower_bound
+            # raise NotImplementedError
 
         progress.update(1)
         with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
