@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument('--z_dim', type=int, default=64, help='dimensionality of z_t')
     parser.add_argument('--g_dim', type=int, default=128, help='dimensionality of encoder output vector and decoder input vector')
     parser.add_argument('--beta', type=float, default=0.0001, help='weighting on KL to prior')
-    parser.add_argument('--num_workers', type=int, default=4, help='number of data loading threads')
+    parser.add_argument('--num_workers', type=int, default=1, help='number of data loading threads')
     parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
     parser.add_argument('--cuda', default=False, action='store_true')  
 
@@ -59,42 +59,52 @@ def train(x, cond, modules, optimizer, kl_anneal, args, epoch):
     modules['posterior'].zero_grad()
     modules['encoder'].zero_grad()
     modules['decoder'].zero_grad()
+    optimizer.zero_grad()
 
     # initialize the hidden state.
     modules['frame_predictor'].hidden = modules['frame_predictor'].init_hidden()
     modules['posterior'].hidden = modules['posterior'].init_hidden()
+
     mse = 0
     kld = 0
-    use_teacher_forcing = True if random.random() < args.tfr else False
-
     h_seq = [modules['encoder'](x[i]) for i in range(args.n_past + args.n_future)]
 
+    use_teacher_forcing = True if random.random() < args.tfr else False
 
-    for i in range(1, args.n_past + args.n_future):
-        
-        h_target = h_seq[i][0]
-        if args.last_frame_skip or i < args.n_past:	
-            h, skip = h_seq[i-1]
-        else:
-            h = h_seq[i-1][0]
-        z_t, mu, logvar = modules['posterior'](h_target)
-        h_pred = modules['frame_predictor'](torch.cat([h, z_t], 1))
-        x_pred = modules['decoder']([h_pred, skip])
-        mse += mse_criterion(x_pred, x[i])
-        kld += kl_criterion(mu, logvar)
+    if use_teacher_forcing:
+        # Apply Teacher Forcing
+        for i in range(1, args.n_past + args.n_future):
+            
+            h_target = h_seq[i][0]
+            if args.last_frame_skip or i < args.n_past:	
+                h, skip = h_seq[i-1]
+            else:
+                h = h_seq[i-1][0]
+            z_t, mu, logvar = modules['posterior'](h_target)
+            h_pred = modules['frame_predictor'](torch.cat([h, z_t], 1))
+            x_pred = modules['decoder']([h_pred, skip])
+            mse += mse_criterion(x_pred, x[i])
+            kld += kl_criterion(mu, logvar)
+
+    else:
+        # Not Apply Teacher Forcing
+        for i in range(1, args.n_past + args.n_future):
+            
+            h_target = h_seq[i][0]
+            if args.last_frame_skip or i < args.n_past:	
+                h, skip = h_seq[i-1]
+            else:
+                h = h_seq[i-1][0]
+            z_t, mu, logvar = modules['posterior'](h_target)
+            h_pred = modules['frame_predictor'](torch.cat([h, z_t], 1))
+            x_pred = modules['decoder']([h_pred, skip])
+            mse += mse_criterion(x_pred, x[i])
+            kld += kl_criterion(mu, logvar)
 
     beta = kl_anneal.get_beta("monotonic", epoch)
     loss = mse + kld * beta
 
-    if use_teacher_forcing:
-        # Apply Teacher Forcing
-
-    else:
-        # Not Apply Teacher Forcing
-
-
     loss.backward()
-
     optimizer.step()
 
     return loss.detach().cpu().numpy() / (args.n_past + args.n_future), mse.detach().cpu().numpy() / (args.n_past + args.n_future), kld.detach().cpu().numpy() / (args.n_future + args.n_past)
@@ -124,7 +134,6 @@ class kl_annealing():
                 beta = 0.1 * epochs
         return beta
         raise NotImplementedError
-
 
 def main():
     args = parse_args()
@@ -295,6 +304,11 @@ def main():
                 except StopIteration:
                     validate_iterator = iter(validate_loader)
                     validate_seq, validate_cond = next(validate_iterator)
+                
+                print(" ==========  validate_seq  ==========")
+                print(validate_seq)
+                print(" ==========  validate_cond  ==========")
+                print(validate_cond)
 
                 pred_seq = pred(validate_seq, validate_cond, modules, args, device)
                 _, _, psnr = finn_eval_seq(validate_seq[args.n_past:], pred_seq[args.n_past:])
