@@ -27,7 +27,8 @@ class lstm(nn.Module):
         return hidden
 
     def forward(self, input):
-        embedded = self.embed(input)
+        # embedded = self.embed(input)
+        embedded = self.embed(input.view(-1, self.input_size))
         h_in = embedded
         for i in range(self.n_layers):
             self.hidden[i] = self.lstm[i](h_in, self.hidden[i])
@@ -58,13 +59,14 @@ class gaussian_lstm(nn.Module):
         return hidden
 
     def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5*logvar)
-        eps = torch.randn_like(std)
-        return mu + eps*std
+        logvar = logvar.mul(0.5).exp_()
+        eps = Variable(logvar.data.new(logvar.size()).normal_())
+        return eps.mul(logvar).add_(mu)
         raise NotImplementedError
 
     def forward(self, input):
-        embedded = self.embed(input)
+        embedded = self.embed(input.view(-1, self.input_size))
+        # embedded = self.embed(input)
         h_in = embedded
         for i in range(self.n_layers):
             self.hidden[i] = self.lstm[i](h_in, self.hidden[i])

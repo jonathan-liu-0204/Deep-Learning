@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
+
 class vgg_layer(nn.Module):
     def __init__(self, nin, nout):
         super(vgg_layer, self).__init__()
@@ -48,6 +50,7 @@ class vgg_encoder(nn.Module):
         self.mp = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 
     def forward(self, input):
+        input = input.to(device)
         h1 = self.c1(input) # 64 -> 32
         h2 = self.c2(self.mp(h1)) # 32 -> 16
         h3 = self.c3(self.mp(h2)) # 16 -> 8

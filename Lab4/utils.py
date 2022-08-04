@@ -1,4 +1,5 @@
 import math
+import torch
 from operator import pos
 import imageio
 import numpy as np
@@ -6,16 +7,22 @@ import matplotlib.pyplot as plt
 import torch
 from PIL import Image, ImageDraw
 from scipy import signal
+import scipy.misc
 from skimage.metrics import peak_signal_noise_ratio as psnr_metric
 from skimage.metrics import structural_similarity as ssim_metric
 from torch.autograd import Variable
 from torchvision import transforms
 from torchvision.utils import save_image
 import scipy.misc
+import progressbar
 
 
 def kl_criterion(mu, logvar, args):
   # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+#   print("========   mu   ========")
+#   print(mu)
+#   print()
+
   KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
   KLD /= args.batch_size  
   return KLD
@@ -116,8 +123,162 @@ def init_weights(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
+# ========================================
+# Prediction Part
+
+def sequence_input(seq, dtype):
+    return [Variable(x.type(dtype)) for x in seq]
+
+def normalize_data(opt, sequence):
+    # if opt.dataset == 'smmnist' or opt.dataset == 'kth' or opt.dataset == 'bair' :
+    sequence.transpose_(0, 1)
+    sequence.transpose_(3, 4).transpose_(2, 3)
+    # else:
+    #     sequence.transpose_(0, 1)
+
+    return sequence_input(sequence)
+
+# def get_training_batch(train_loader, args):
+#     while True:
+#         for sequence in train_loader:
+#             batch = normalize_data(args, torch.cuda.FloatTensor, sequence)
+#             yield batch
+
+# def get_testing_batch(test_loader, args):
+#     while True:
+#         for sequence in test_loader:
+#             batch = normalize_data(args, torch.cuda.FloatTensor, sequence)
+#             yield batch 
+
 def pred(validate_seq, validate_cond, modules, args, device):
+
+    frame_predictor = modules["frame_predictor"]
+    posterior = modules["posterior"]
+    encoder = modules["encoder"]
+    decoder = modules["decoder"]
+
+    frame_predictor.to(device)
+    posterior.to(device)
+    encoder.to(device)
+    decoder.to(device)
+
+    frame_predictor.hidden = frame_predictor.init_hidden()
+    posterior.hidden = posterior.init_hidden()
+    posterior_gen = []
+    posterior_gen.append(validate_seq[0])
+    x_in = validate_seq
+
+    for i in range(1, args.n_past + args.n_future):
+        h = encoder(x_in)
+        h_target = encoder(validate_seq[i])[0].detach()
+        if args.last_frame_skip or i < args.n_past:	
+            h, skip = h
+        else:
+            h, _ = h
+        h = h.detach()
+        _, z_t, _= posterior(h_target) # take the mean
+        if i < args.n_past:
+            frame_predictor(torch.cat([h, z_t], 1)) 
+            posterior_gen.append(validate_seq[i])
+            x_in = validate_seq[i]
+        else:
+            h_pred = frame_predictor(torch.cat([h, z_t], 1)).detach()
+            x_in = decoder([h_pred, skip]).detach()
+            posterior_gen.append(x_in)
+    
+    nsample = args.nsample
+    all_gen = []
+
+    for s in range(nsample):
+        gen_seq = []
+        gt_seq = []
+        frame_predictor.hidden = frame_predictor.init_hidden()
+        posterior.hidden = posterior.init_hidden()
+        x_in = validate_seq[0]
+        all_gen.append([])
+        all_gen[s].append(x_in)
+        for i in range(1, args.n_eval):
+            h = encoder(x_in)
+            if args.last_frame_skip or i < args.n_past:	
+                h, skip = h
+            else:
+                h, _ = h
+            h = h.detach()
+            if i < args.n_past:
+                h_target = encoder(validate_seq[i])[0].detach()
+                _, z_t, _ = posterior(h_target)
+            else:
+                z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
+            if i < args.n_past:
+                frame_predictor(torch.cat([h, z_t], 1))
+                x_in = validate_seq[i]
+                all_gen[s].append(x_in)
+            else:
+                h = frame_predictor(torch.cat([h, z_t], 1)).detach()
+                x_in = decoder([h, skip]).detach()
+                gen_seq.append(x_in.data.cpu().numpy())
+                gt_seq.append(validate_seq[i].data.cpu().numpy())
+                all_gen[s].append(x_in)
+
+    return all_gen, posterior_gen
     raise NotImplementedError
+
+def plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name):
+
+    nsample = args.nsample
+    ssim = np.zeros((args.batch_size, nsample, args.n_future))
+    psnr = np.zeros((args.batch_size, nsample, args.n_future))
+
+    all_gen, posterior_gen = pred(validate_seq, modules, args, device)
+    _, ssim, psnr = finn_eval_seq(validate_seq[args.n_past:], all_gen[args.n_past:])
+
+    for i in range(args.batch_size):
+        gifs = [ [] for t in range(args.n_eval) ]
+        text = [ [] for t in range(args.n_eval) ]
+        mean_ssim = np.mean(ssim[i], 1)
+        ordered = np.argsort(mean_ssim)
+        rand_sidx = [np.random.randint(nsample) for s in range(3)]
+        for t in range(args.n_eval):
+            # gt 
+            gifs[t].append(add_border(validate_seq[t][i], 'green'))
+            text[t].append('Ground\ntruth')
+            #posterior 
+            if t < args.n_past:
+                color = 'green'
+            else:
+                color = 'red'
+            gifs[t].append(add_border(posterior_gen[t][i], color))
+            text[t].append('Approx.\nposterior')
+            # best 
+            if t < args.n_past:
+                color = 'green'
+            else:
+                color = 'red'
+            sidx = ordered[-1]
+            gifs[t].append(add_border(all_gen[sidx][t][i], color))
+            text[t].append('Best SSIM')
+            # random 3
+            for s in range(len(rand_sidx)):
+                gifs[t].append(add_border(all_gen[rand_sidx[s]][t][i], color))
+                text[t].append('Random\nsample %d' % (s+1))
+
+        fname = '%s/%s_%d.gif' % (args.log_dir, name, epoch+i) 
+        save_gif_with_text(fname, gifs, text)
+
+def add_border(x, color, pad=1):
+    w = x.size()[1]
+    nc = x.size()[0]
+    px = Variable(torch.zeros(3, w+2*pad+30, w+2*pad))
+    if color == 'red':
+        px[0] =0.7 
+    elif color == 'green':
+        px[1] = 0.7
+    if nc == 1:
+        for c in range(3):
+            px[c, pad:w+pad, pad:w+pad] = x
+    else:
+        px[:, pad:w+pad, pad:w+pad] = x
+    return px
 
 # ========================================
 # Drawing Part
