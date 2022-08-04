@@ -19,14 +19,11 @@ from utils import init_weights, kl_criterion, plot_pred, finn_eval_seq, pred
 
 torch.backends.cudnn.benchmark = True
 
-device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
-    parser.add_argument('--batch_size', default=30, type=int, help='batch size')
+    parser.add_argument('--batch_size', default=12, type=int, help='batch size')
     parser.add_argument('--log_dir', default='./logs/fp', help='base directory to save logs')
     parser.add_argument('--model_dir', default='', help='base directory to save logs')
     parser.add_argument('--data_root', default='./data/processed_data', help='root directory for data')
@@ -34,7 +31,7 @@ def parse_args():
     parser.add_argument('--niter', type=int, default=300, help='number of epochs to train for')
     parser.add_argument('--epoch_size', type=int, default=600, help='epoch size')
     parser.add_argument('--tfr', type=float, default=1.0, help='teacher forcing ratio (0 ~ 1)')
-    parser.add_argument('--tfr_start_decay_epoch', type=int, default=0, help='The epoch that teacher forcieng ratio become decrasing')
+    parser.add_argument('--tfr_start_decay_epoch', type=int, default=0, help='The epoch that teacher forcing ratio become decreasing')
     parser.add_argument('--tfr_decay_step', type=float, default=0, help='The decay step size of teacher forcing ratio (0 ~ 1)')
     parser.add_argument('--tfr_lower_bound', type=float, default=0, help='The lower bound of teacher forcing ratio for scheduling teacher forcing ratio (0 ~ 1)')
     parser.add_argument('--kl_anneal_cyclical', default=False, action='store_true', help='use cyclical mode')
@@ -43,7 +40,7 @@ def parse_args():
     parser.add_argument('--seed', default=1, type=int, help='manual seed')
     parser.add_argument('--n_past', type=int, default=2, help='number of frames to condition on')
     parser.add_argument('--n_future', type=int, default=10, help='number of frames to predict')
-    parser.add_argument('--n_eval', type=int, default=30, help='number of frames to predict at eval time')
+    parser.add_argument('--n_eval', type=int, default=12, help='number of frames to predict at eval time')
     parser.add_argument('--rnn_size', type=int, default=256, help='dimensionality of hidden layer')
     parser.add_argument('--posterior_rnn_layers', type=int, default=1, help='number of layers')
     parser.add_argument('--predictor_rnn_layers', type=int, default=2, help='number of layers')
@@ -52,92 +49,45 @@ def parse_args():
     parser.add_argument('--beta', type=float, default=0.0001, help='weighting on KL to prior')
     parser.add_argument('--num_workers', type=int, default=4, help='number of data loading threads')
     parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
-    parser.add_argument('--cuda', default=True, action='store_true')
-    parser.add_argument('--nsample', type=int, default=100, help='number of samples')
+    parser.add_argument('--cuda', default=False, action='store_true')  
 
     args = parser.parse_args()
     return args
 
-def train(x, modules, optimizer, kl_anneal, args, epoch):
+def train(x, cond, modules, optimizer, kl_anneal, args):
     modules['frame_predictor'].zero_grad()
     modules['posterior'].zero_grad()
     modules['encoder'].zero_grad()
     modules['decoder'].zero_grad()
-    optimizer.zero_grad()
 
     # initialize the hidden state.
     modules['frame_predictor'].hidden = modules['frame_predictor'].init_hidden()
     modules['posterior'].hidden = modules['posterior'].init_hidden()
-
     mse = 0
     kld = 0
-    h_seq = [modules['encoder'](x[i]) for i in range(args.n_past + args.n_future)]
-
     use_teacher_forcing = True if random.random() < args.tfr else False
+    for i in range(1, args.n_past + args.n_future):
+        raise NotImplementedError
 
-    if use_teacher_forcing:
-        # Apply Teacher Forcing
-        for i in range(1, args.n_past + args.n_future):
-            
-            h_target = h_seq[i][0]
-            if args.last_frame_skip or i < args.n_past:	
-                h, skip = h_seq[i-1]
-            else:
-                h = h_seq[i-1][0]
-            z_t, mu, logvar = modules['posterior'](h_target)
-            h_pred = modules['frame_predictor'](torch.cat([h_target, z_t], 1))
-            x_pred = modules['decoder']([h_pred, skip])
-            mse += mse_criterion(x_pred, x[i].to(device))
-            kld += kl_criterion(mu, logvar, args)
-
-    else:
-        # Not Apply Teacher Forcing
-        for i in range(1, args.n_past + args.n_future):
-            
-            h_target = h_seq[i][0]
-            if args.last_frame_skip or i < args.n_past:	
-                h, skip = h_seq[i-1]
-            else:
-                h = h_seq[i-1][0]
-            z_t, mu, logvar = modules['posterior'](h_target)
-            h_pred = modules['frame_predictor'](torch.cat([h, z_t], 1))
-            x_pred = modules['decoder']([h_pred, skip])
-            mse += mse_criterion(x_pred, x[i].to(device))
-            kld += kl_criterion(args, mu, logvar)
-
-    beta = kl_anneal.get_beta("monotonic", epoch)
+    beta = kl_anneal.get_beta()
     loss = mse + kld * beta
-
     loss.backward()
+
     optimizer.step()
 
     return loss.detach().cpu().numpy() / (args.n_past + args.n_future), mse.detach().cpu().numpy() / (args.n_past + args.n_future), kld.detach().cpu().numpy() / (args.n_future + args.n_past)
-    raise NotImplementedError
-
-mse_criterion = nn.MSELoss()
 
 class kl_annealing():
     def __init__(self, args):
         super().__init__()
-        self.beta = args.beta
-        # raise NotImplementedError
+        raise NotImplementedError
     
     def update(self):
         raise NotImplementedError
     
-    def get_beta(self, mode, epochs):
-        if mode == "monotonic":
-            if epochs > 20:
-                beta = 1
-            else:
-                beta = 0.05 * epochs
-        else: #"cyclical"
-            if epochs % 20 > 10:
-                beta = 1
-            else:
-                beta = 0.1 * epochs
-        return beta
+    def get_beta(self):
         raise NotImplementedError
+
 
 def main():
     args = parse_args()
@@ -146,8 +96,6 @@ def main():
         device = 'cuda'
     else:
         device = 'cpu'
-
-    print("Device: ", device)
     
     assert args.n_past + args.n_future <= 30 and args.n_eval <= 30
     assert 0 <= args.tfr and args.tfr <= 1
@@ -214,7 +162,6 @@ def main():
     posterior.to(device)
     encoder.to(device)
     decoder.to(device)
-    mse_criterion.to(device)
 
     # --------- load a dataset ------------------------------------
     train_data = bair_robot_pushing_dataset(args, 'train')
@@ -224,7 +171,7 @@ def main():
                             batch_size=args.batch_size,
                             shuffle=True,
                             drop_last=True,
-                            pin_memory=False)
+                            pin_memory=True)
     train_iterator = iter(train_loader)
 
     validate_loader = DataLoader(validate_data,
@@ -232,7 +179,7 @@ def main():
                             batch_size=args.batch_size,
                             shuffle=True,
                             drop_last=True,
-                            pin_memory=False)
+                            pin_memory=True)
 
     validate_iterator = iter(validate_loader)
 
@@ -260,8 +207,6 @@ def main():
 
     progress = tqdm(total=args.niter)
     best_val_psnr = 0
-    tfr_value = args.tfr
-
     for epoch in range(start_epoch, start_epoch + niter):
         frame_predictor.train()
         posterior.train()
@@ -274,44 +219,19 @@ def main():
 
         for _ in range(args.epoch_size):
             try:
-                x = next(train_iterator)
+                seq, cond = next(train_iterator)
             except StopIteration:
                 train_iterator = iter(train_loader)
-                x = next(train_iterator)
+                seq, cond = next(train_iterator)
             
-            
-            # print("===== seq =====") 
-            # for i in seq:
-            #     count = 0
-            #     for j in i:
-            #         count += 1
-            #         # print(count)
-            #     print(count)   
-            # print()
-
-            # train(x, cond, modules, optimizer, kl_anneal, args, epoch)
-
-            # print("==== ", _, " ====")
-            # print(len(a) for a in seq)
-            # print()
-            
-            # print(len(x))
-            # print(len(x[0]))
-            # print(len(x[1]))
-
-            loss, mse, kld = train(x[0], modules, optimizer, kl_anneal, args, epoch)
+            loss, mse, kld = train(seq, cond, modules, optimizer, kl_anneal, args)
             epoch_loss += loss
             epoch_mse += mse
             epoch_kld += kld
         
         if epoch >= args.tfr_start_decay_epoch:
             ### Update teacher forcing ratio ###
-
-            tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
-
-            if tfr_value < args.tfr_lower_bound:
-                tfr_value = args.tfr_lower_bound
-            # raise NotImplementedError
+            raise NotImplementedError
 
         progress.update(1)
         with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
@@ -330,14 +250,9 @@ def main():
                 except StopIteration:
                     validate_iterator = iter(validate_loader)
                     validate_seq, validate_cond = next(validate_iterator)
-                
-                # print(" ==========  validate_seq  ==========")
-                # print(validate_seq)
-                # print(" ==========  validate_cond  ==========")
-                # print(validate_cond)
 
-                pred_seq, posterior_gen = pred(validate_seq[0], validate_cond, modules, args, device)
-                _, ssim, psnr = finn_eval_seq(validate_seq[args.n_past:], pred_seq[args.n_past:])
+                pred_seq = pred(validate_seq, validate_cond, modules, args, device)
+                _, _, psnr = finn_eval_seq(validate_seq[args.n_past:], pred_seq[args.n_past:])
                 psnr_list.append(psnr)
                 
             ave_psnr = np.mean(np.concatenate(psnr))
@@ -358,14 +273,14 @@ def main():
                     'last_epoch': epoch},
                     '%s/model.pth' % args.log_dir)
 
-        if epoch % 5 == 0:
+        if epoch % 20 == 0:
             try:
                 validate_seq, validate_cond = next(validate_iterator)
             except StopIteration:
                 validate_iterator = iter(validate_loader)
                 validate_seq, validate_cond = next(validate_iterator)
 
-            plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name)
+            plot_pred(validate_seq, validate_cond, modules, epoch, args)
 
 if __name__ == '__main__':
     main()
