@@ -304,7 +304,7 @@ def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name
     # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
     # save_np_img(fname, to_plot)
 
-    fname = '/plot/%d_result.gif' % (epoch) 
+    fname = '%s/plots/sample_%d.gif' % (args.log_dir, epoch) 
     save_gif(fname, gifs)
 
 
