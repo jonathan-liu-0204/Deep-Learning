@@ -17,7 +17,7 @@ from dataset import bair_robot_pushing_dataset
 from models.lstm import gaussian_lstm, lstm
 from models.vgg_64 import vgg_decoder, vgg_encoder
 
-from utils import init_weights, kl_criterion, pred, finn_eval_seq, plot_pred
+from utils import init_weights, kl_criterion, pred, finn_eval_seq, plot_pred, normalize_data
 
 import models.lstm as lstm_models
 
@@ -196,8 +196,22 @@ validate_loader = DataLoader(validate_data,
                         drop_last=True,
                         pin_memory=False)
 
-train_iterator = iter(train_loader)
-validate_iterator = iter(validate_loader)
+# train_iterator = iter(train_loader)
+# validate_iterator = iter(validate_loader)
+
+def get_training_batch():
+    while True:
+        for sequence in train_loader:
+            batch = normalize_data(args, dtype, sequence)
+            yield batch
+training_batch_generator = get_training_batch()
+
+def get_testing_batch():
+    while True:
+        for sequence in validate_loader:
+            batch = normalize_data(args, dtype, sequence)
+            yield batch 
+validate_batch_generator = get_testing_batch()
 
 # ============================================================
 # KL Annealing
@@ -230,7 +244,7 @@ kl_anneal = kl_annealing(args)
 # ============================================================
 # Training Function
 
-def train(x, cond, epoch):
+def train(x, epoch):
 
     frame_predictor.zero_grad()
     posterior.zero_grad()
@@ -315,17 +329,10 @@ for epoch in range(start_epoch,  start_epoch + niter):
     epoch_kld = 0
 
     for i in range(args.epoch_size):
-        try:
-            seq, cond = next(train_iterator)
-        except StopIteration:
-            train_iterator = iter(train_loader)
-            seq, cond = next(train_iterator)
+        x = next(training_batch_generator)
         
-        # print(cond)
-
-        cond = cond.to(device)
-        
-        loss, mse, kld = train(seq, cond, epoch)
+        # print(cond)        
+        loss, mse, kld = train(x, epoch)
         epoch_loss += loss
         epoch_mse += mse
         epoch_kld += kld

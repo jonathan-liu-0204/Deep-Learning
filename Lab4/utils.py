@@ -13,6 +13,12 @@ from torchvision import transforms
 from torchvision.utils import save_image
 from skimage import img_as_ubyte
 
+def normalize_data(args, dtype, sequence):
+    sequence.transpose_(0, 1)
+    sequence.transpose_(3, 4).transpose_(2, 3)
+
+    return sequence_input(sequence, dtype)
+
 def sequence_input(seq, dtype):
     return [Variable(x.type(dtype)) for x in seq]
 
