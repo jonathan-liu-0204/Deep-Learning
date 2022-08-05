@@ -179,8 +179,8 @@ mse_criterion.to(device)
 # ============================================================
 # Load a Dataset
 
-train_data = bair_robot_pushing_dataset(args, 'train')
-validate_data = bair_robot_pushing_dataset(args, 'validate')
+train_data = bair_robot_pushing_dataset(args, 'train', args.n_past+args.n_future)
+validate_data = bair_robot_pushing_dataset(args, 'validate', args.n_eval)
 
 train_loader = DataLoader(train_data,
                         num_workers=args.num_workers,

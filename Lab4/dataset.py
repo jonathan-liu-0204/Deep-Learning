@@ -13,11 +13,11 @@ default_transform = transforms.Compose([
     ])
 
 class bair_robot_pushing_dataset(Dataset):
-    def __init__(self, args, mode='train', transform=default_transform):
+    def __init__(self, args, mode='train', seq_len = 20, transform=default_transform):
         assert mode == 'train' or mode == 'test' or mode == 'validate'
         self.root = '{}/{}'.format(args.data_root, mode)
         # self.seq_len = max(args.n_past + args.n_future, args.n_eval)
-        self.seq_len = 20
+        self.seq_len = seq_len
         self.mode = mode
         if mode == 'train':
             self.ordered = False
