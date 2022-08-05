@@ -27,7 +27,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
-    parser.add_argument('--batch_size', default=100, type=int, help='batch size')
+    parser.add_argument('--batch_size', default=30, type=int, help='batch size')
     parser.add_argument('--log_dir', default='./logs/fp', help='base directory to save logs')
     parser.add_argument('--model_dir', default='', help='base directory to save logs')
     parser.add_argument('--data_root', default='./data', help='root directory for data')
