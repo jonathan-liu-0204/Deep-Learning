@@ -227,6 +227,16 @@ def save_tensors_image(filename, inputs, padding=1):
     images = image_tensor(inputs, padding)
     return save_image(filename, images)
 
+def save_np_img(fname, x):
+    if x.shape[0] == 1:
+        x = np.tile(x, (3, 1, 1))
+
+    img = Image.fromarray(np.uint8(x)).covert('RGB')
+    # img = scipy.misc.toimage(x,
+    #                          high=255*x.max(),
+    #                          channel_axis=0)
+    img.save(fname)
+
 def save_gif(filename, inputs, duration=0.25):
     images = []
     for tensor in inputs:
@@ -292,7 +302,7 @@ def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name
             gifs[t].append(row)
 
     fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
-    save_tensors_image(fname, to_plot)
+    save_np_img(fname, to_plot)
 
     fname = '%s/plot/sample_%d.gif' % (args.log_dir, epoch) 
     save_gif(fname, gifs)
