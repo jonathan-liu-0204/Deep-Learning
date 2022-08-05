@@ -352,13 +352,14 @@ for epoch in range(start_epoch,  start_epoch + niter):
     decoder.eval()
     posterior.eval()
 
-    try:
-        validate_seq, validate_cond = next(validate_iterator)
-    except StopIteration:
-        validate_iterator = iter(validate_loader)
-        validate_seq, validate_cond = next(validate_iterator)
+    # try:
+    #     validate_seq, validate_cond = next(validate_iterator)
+    # except StopIteration:
+    #     validate_iterator = iter(validate_loader)
+    #     validate_seq, validate_cond = next(validate_iterator)
+    x = next(validate_batch_generator)
 
-    plot_pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, epoch, args, name)
+    plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
 
 

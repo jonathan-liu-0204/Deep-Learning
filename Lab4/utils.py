@@ -131,18 +131,18 @@ def init_weights(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
-def pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device):
+def pred(x, encoder, decoder, frame_predictor, posterior, args, device):
 
     nsample = 5
     gen_seq = [[] for i in range(nsample)]
-    gt_seq = [validate_seq[i] for i in range(len(validate_seq))]
+    gt_seq = [x[i] for i in range(len(x))]
 
-    h_seq = [encoder(validate_seq[i]) for i in range(args.n_past)]
+    h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
-        gen_seq[s].append(validate_seq[0])
-        x_in = validate_seq[0]
+        gen_seq[s].append(x[0])
+        x_in = x[0]
 
         for i in range(1, args.n_eval):
             if args.last_frame_skip or i < args.n_past:	
@@ -155,7 +155,7 @@ def pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posteri
             if i < args.n_past:
                 z_t, _, _ = posterior(h_seq[i][0])
                 frame_predictor(torch.cat([h, z_t], 1)) 
-                x_in = validate_seq[i]
+                x_in = x[i]
                 gen_seq[s].append(x_in)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
@@ -236,17 +236,17 @@ def save_gif(filename, inputs, duration=0.25):
         images.append(img.numpy())
     imageio.mimsave(filename, images, duration=duration)
 
-def plot_pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, epoch, args, name):
+def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name):
     nsample = 5
     gen_seq = [[] for i in range(nsample)]
-    gt_seq = [validate_seq[i] for i in range(len(validate_seq))]
+    gt_seq = [x[i] for i in range(len(x))]
 
-    h_seq = [encoder(validate_seq[i]) for i in range(args.n_past)]
+    h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
-        gen_seq[s].append(validate_seq[0])
-        x_in = validate_seq[0]
+        gen_seq[s].append(x[0])
+        x_in = x[0]
 
         for i in range(1, args.n_eval):
             if args.last_frame_skip or i < args.n_past:	
@@ -259,7 +259,7 @@ def plot_pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, po
             if i < args.n_past:
                 z_t, _, _ = posterior(h_seq[i][0])
                 frame_predictor(torch.cat([h, z_t], 1)) 
-                x_in = validate_seq[i]
+                x_in = x[i]
                 gen_seq[s].append(x_in)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
@@ -289,10 +289,10 @@ def plot_pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, po
                 row.append(gen_seq[s][t][i])
             gifs[t].append(row)
 
-    fname = '%s/gen/sample_%d.png' % (args.log_dir, epoch) 
+    fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
     save_tensors_image(fname, to_plot)
 
-    fname = '%s/gen/sample_%d.gif' % (args.log_dir, epoch) 
+    fname = '%s/plot/sample_%d.gif' % (args.log_dir, epoch) 
     save_gif(fname, gifs)
 
 
