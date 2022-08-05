@@ -240,6 +240,8 @@ def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name
     nsample = 5
     gen_seq = [[] for i in range(nsample)]
     gt_seq = [x[i] for i in range(len(x))]
+    
+    print("gt_seq len(x): ", len(x)) 
 
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 

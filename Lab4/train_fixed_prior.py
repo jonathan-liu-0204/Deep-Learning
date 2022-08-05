@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument('--seed', default=1, type=int, help='manual seed')
     parser.add_argument('--n_past', type=int, default=5, help='number of frames to condition on')
     parser.add_argument('--n_future', type=int, default=10, help='number of frames to predict')
-    parser.add_argument('--n_eval', type=int, default=30, help='number of frames to predict at eval time')
+    parser.add_argument('--n_eval', type=int, default=15, help='number of frames to predict at eval time')
     parser.add_argument('--rnn_size', type=int, default=256, help='dimensionality of hidden layer')
     parser.add_argument('--posterior_rnn_layers', type=int, default=1, help='number of layers')
     parser.add_argument('--predictor_rnn_layers', type=int, default=2, help='number of layers')
