@@ -16,15 +16,6 @@ from skimage import img_as_ubyte
 def sequence_input(seq, dtype):
     return [Variable(x.type(dtype)) for x in seq]
 
-def normalize_data(opt, dtype, sequence):
-    if opt.dataset == 'smmnist' or opt.dataset == 'kth' or opt.dataset == 'bair' :
-        sequence.transpose_(0, 1)
-        sequence.transpose_(3, 4).transpose_(2, 3)
-    else:
-        sequence.transpose_(0, 1)
-
-    return sequence_input(sequence, dtype)
-
 def kl_criterion(mu, logvar, args):
   # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
   KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
@@ -60,19 +51,19 @@ def finn_eval_seq(gt, pred):
     T = len(gt)
     bs = gt[0].shape[0]
 
-    # print("T: ", T)
-    # print("bs: ", bs)
+    print("T: ", T)
+    print("bs: ", bs)
 
-    # print("pred T: ", len(pred))
-    # print("pred bs: ", pred[0].shape[0])
+    print("pred T: ", len(pred))
+    print("pred bs: ", pred[0].shape[0])
     
     ssim = np.zeros((bs, T))
     psnr = np.zeros((bs, T))
     mse = np.zeros((bs, T))
     for i in range(bs):
         for t in range(T):
-            origin = gt[t][i]
-            predict = pred[t][i]
+            origin = gt[t][i].detach().cpu().numpy()
+            predict = pred[t][i].detach().cpu().numpy()
             for c in range(origin.shape[0]):
                 res = finn_ssim(origin[c], predict[c]).mean()
                 if math.isnan(res):

@@ -13,8 +13,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import bair_robot_pushing_dataset
+
 from models.lstm import gaussian_lstm, lstm
 from models.vgg_64 import vgg_decoder, vgg_encoder
+
 from utils import init_weights, kl_criterion, pred, finn_eval_seq, plot_pred
 
 import models.lstm as lstm_models
@@ -25,7 +27,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
-    parser.add_argument('--batch_size', default=12, type=int, help='batch size')
+    parser.add_argument('--batch_size', default=100, type=int, help='batch size')
     parser.add_argument('--log_dir', default='./logs/fp', help='base directory to save logs')
     parser.add_argument('--model_dir', default='', help='base directory to save logs')
     parser.add_argument('--data_root', default='./data', help='root directory for data')
@@ -40,16 +42,16 @@ def parse_args():
     parser.add_argument('--kl_anneal_ratio', type=float, default=0.5, help='The decay ratio of kl annealing')
     parser.add_argument('--kl_anneal_cycle', type=int, default=3, help='The number of cycle for kl annealing during training (if use cyclical mode)')
     parser.add_argument('--seed', default=1, type=int, help='manual seed')
-    parser.add_argument('--n_past', type=int, default=2, help='number of frames to condition on')
+    parser.add_argument('--n_past', type=int, default=5, help='number of frames to condition on')
     parser.add_argument('--n_future', type=int, default=10, help='number of frames to predict')
-    parser.add_argument('--n_eval', type=int, default=12, help='number of frames to predict at eval time')
+    parser.add_argument('--n_eval', type=int, default=30, help='number of frames to predict at eval time')
     parser.add_argument('--rnn_size', type=int, default=256, help='dimensionality of hidden layer')
     parser.add_argument('--posterior_rnn_layers', type=int, default=1, help='number of layers')
     parser.add_argument('--predictor_rnn_layers', type=int, default=2, help='number of layers')
-    parser.add_argument('--z_dim', type=int, default=128, help='dimensionality of z_t')
-    parser.add_argument('--g_dim', type=int, default=64, help='dimensionality of encoder output vector and decoder input vector')
+    parser.add_argument('--z_dim', type=int, default=10, help='dimensionality of z_t')
+    parser.add_argument('--g_dim', type=int, default=128, help='dimensionality of encoder output vector and decoder input vector')
     parser.add_argument('--beta', type=float, default=0.0001, help='weighting on KL to prior')
-    parser.add_argument('--num_workers', type=int, default=4, help='number of data loading threads')
+    parser.add_argument('--num_workers', type=int, default=5, help='number of data loading threads')
     parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
     parser.add_argument('--cuda', default=True, action='store_true')  
 
@@ -95,6 +97,8 @@ else:
 
 os.makedirs(args.log_dir, exist_ok=True)
 os.makedirs('%s/gen/' % args.log_dir, exist_ok=True)
+os.makedirs('%s/plots/' % args.log_dir, exist_ok=True)
+
 
 print("Random Seed: ", args.seed)
 random.seed(args.seed)
@@ -129,8 +133,6 @@ else:
 if args.model_dir != '':
     frame_predictor = saved_model['frame_predictor']
     posterior = saved_model['posterior']
-    decoder = saved_model['decoder']
-    encoder = saved_model['encoder']
 else:
     frame_predictor = lstm(args.g_dim+args.z_dim+7, args.g_dim, args.rnn_size, args.predictor_rnn_layers, args.batch_size, device)
     posterior = gaussian_lstm(args.g_dim, args.z_dim, args.rnn_size, args.posterior_rnn_layers, args.batch_size, device)
@@ -138,6 +140,11 @@ else:
     frame_predictor.apply(init_weights)
     posterior.apply(init_weights)
 
+
+if args.model_dir != '':
+    decoder = saved_model['decoder']
+    encoder = saved_model['encoder']
+else:
     encoder = vgg_encoder(args.g_dim)
     decoder = vgg_decoder(args.g_dim)
 
@@ -147,8 +154,10 @@ else:
 # ============================================================
 # Build the Optimizers
 
-params = list(frame_predictor.parameters()) + list(posterior.parameters()) + list(encoder.parameters()) + list(decoder.parameters())
-optimizer = args.optimizer(params, lr=args.lr, betas=(args.beta1, 0.999))
+frame_predictor_optimizer = args.optimizer(frame_predictor.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+posterior_optimizer = args.optimizer(posterior.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+encoder_optimizer = args.optimizer(encoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+decoder_optimizer = args.optimizer(decoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
 
 
 # ============================================================
@@ -189,7 +198,6 @@ validate_loader = DataLoader(validate_data,
 
 train_iterator = iter(train_loader)
 validate_iterator = iter(validate_loader)
-
 
 # ============================================================
 # KL Annealing
