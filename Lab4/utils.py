@@ -228,8 +228,8 @@ def save_tensors_image(filename, inputs, padding=1):
     return save_image(filename, images)
 
 def save_np_img(fname, x):
-    if x.shape[0] == 1:
-        x = np.tile(x, (3, 1, 1))
+    # if x.shape[0] == 1:
+    #     x = np.tile(x, (3, 1, 1))
 
     img = Image.fromarray(np.uint8(x)).covert('RGB')
     # img = scipy.misc.toimage(x,
