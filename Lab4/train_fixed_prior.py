@@ -414,13 +414,14 @@ for epoch in range(start_epoch,  start_epoch + niter):
     #     plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name)
 
         # save the model
-    save_path = args.log_dir + "/" + epoch + "_model.pth"
+    save_path = args.log_dir + "/" + str(epoch) + "_model.pth"
     torch.save({'encoder': encoder,
                 'decoder': decoder,
                 'frame_predictor': frame_predictor,
                 'posterior': posterior,
-                'args': args}, 
-                    save_path)
+                'args': args,
+                'last_epoch': epoch}, 
+                save_path)
 
     if epoch % 10 == 0:
         print('log dir: %s' % args.log_dir)
