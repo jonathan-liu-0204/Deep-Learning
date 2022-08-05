@@ -5,6 +5,7 @@ import csv
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
+from scipy.misc import imread
 
 default_transform = transforms.Compose([
     transforms.ToTensor(),
@@ -14,7 +15,8 @@ class bair_robot_pushing_dataset(Dataset):
     def __init__(self, args, mode='train', transform=default_transform):
         assert mode == 'train' or mode == 'test' or mode == 'validate'
         self.root = '{}/{}'.format(args.data_root, mode)
-        self.seq_len = max(args.n_past + args.n_future, args.n_eval)
+        # self.seq_len = max(args.n_past + args.n_future, args.n_eval)
+        self.seq_len = 20
         self.mode = mode
         if mode == 'train':
             self.ordered = False
@@ -52,9 +54,13 @@ class bair_robot_pushing_dataset(Dataset):
         image_seq = []
         for i in range(self.seq_len):
             fname = '{}/{}.png'.format(self.cur_dir, i)
-            img = Image.open(fname)
-            image_seq.append(self.transform(img))
-        image_seq = torch.stack(image_seq)
+            im = imread(fname).reshape(1, 64, 64, 3)
+            image_seq.append(im/255.)
+            # img = Image.open(fname)
+            # image_seq.append(self.transform(img))
+        # image_seq = torch.stack(image_seq)
+
+        image_seq = np.concatenate(image_seq, axis=0)
 
         return image_seq
     
