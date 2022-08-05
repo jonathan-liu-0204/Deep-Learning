@@ -15,7 +15,7 @@ from tqdm import tqdm
 from dataset import bair_robot_pushing_dataset
 from models.lstm import gaussian_lstm, lstm
 from models.vgg_64 import vgg_decoder, vgg_encoder
-from utils import init_weights, kl_criterion, pred, finn_eval_seq
+from utils import init_weights, kl_criterion, pred, finn_eval_seq, plot_pred
 
 import models.lstm as lstm_models
 
