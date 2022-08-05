@@ -281,25 +281,25 @@ def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name
 
     to_plot = []
     gifs = [ [] for t in range(args.n_eval) ]
-    nrow = min(args.batch_size, 10)
-    for i in range(nrow):
-        # ground truth sequence
-        row = [] 
-        for t in range(args.n_eval):
-            row.append(gt_seq[t][i])
-        to_plot.append(row)
+    # nrow = min(args.batch_size, 10)
+    # for i in range(nrow):
+    # ground truth sequence
+    row = [] 
+    for t in range(args.n_eval):
+        row.append(gt_seq[t][i])
+    to_plot.append(row)
 
-        for s in range(nsample):
-            row = []
-            for t in range(args.n_eval):
-                row.append(gen_seq[s][t][i]) 
-            to_plot.append(row)
+    for s in range(nsample):
+        row = []
         for t in range(args.n_eval):
-            row = []
-            row.append(gt_seq[t][i])
-            for s in range(nsample):
-                row.append(gen_seq[s][t][i])
-            gifs[t].append(row)
+            row.append(gen_seq[s][t][i]) 
+        to_plot.append(row)
+    for t in range(args.n_eval):
+        row = []
+        row.append(gt_seq[t][i])
+        for s in range(nsample):
+            row.append(gen_seq[s][t][i])
+        gifs[t].append(row)
 
     # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
     # save_np_img(fname, to_plot)
