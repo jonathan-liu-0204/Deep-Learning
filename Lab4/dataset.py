@@ -88,4 +88,5 @@ class bair_robot_pushing_dataset(Dataset):
         self.set_seed(index)
         seq = self.get_seq()
         cond =  self.get_csv()
-        return seq, cond
+        # return seq, cond
+        return seq
