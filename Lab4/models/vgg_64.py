@@ -48,6 +48,7 @@ class vgg_encoder(nn.Module):
         self.mp = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 
     def forward(self, input):
+        input = input.to("cuda:0")
         h1 = self.c1(input) # 64 -> 32
         h2 = self.c2(self.mp(h1)) # 32 -> 16
         h3 = self.c3(self.mp(h2)) # 16 -> 8

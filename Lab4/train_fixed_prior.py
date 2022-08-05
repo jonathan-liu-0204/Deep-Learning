@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument('--beta', type=float, default=0.0001, help='weighting on KL to prior')
     parser.add_argument('--num_workers', type=int, default=4, help='number of data loading threads')
     parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
-    parser.add_argument('--cuda', default=False, action='store_true')  
+    parser.add_argument('--cuda', default=True, action='store_true')  
 
     args = parser.parse_args()
     return args
@@ -64,6 +64,7 @@ if args.cuda:
 else:
     device = 'cpu'
 
+print("Using Device: ", device)
 
 # ============================================================
 # Loading Models
@@ -131,7 +132,7 @@ if args.model_dir != '':
     decoder = saved_model['decoder']
     encoder = saved_model['encoder']
 else:
-    frame_predictor = lstm(args.g_dim+args.z_dim, args.g_dim, args.rnn_size, args.predictor_rnn_layers, args.batch_size, device)
+    frame_predictor = lstm(args.g_dim+args.z_dim+7, args.g_dim, args.rnn_size, args.predictor_rnn_layers, args.batch_size, device)
     posterior = gaussian_lstm(args.g_dim, args.z_dim, args.rnn_size, args.posterior_rnn_layers, args.batch_size, device)
 
     frame_predictor.apply(init_weights)
@@ -177,15 +178,14 @@ train_loader = DataLoader(train_data,
                         batch_size=args.batch_size,
                         shuffle=True,
                         drop_last=True,
-                        pin_memory=True)
+                        pin_memory=False)
                         
 validate_loader = DataLoader(validate_data,
                         num_workers=args.num_workers,
                         batch_size=args.batch_size,
                         shuffle=True,
                         drop_last=True,
-                        pin_memory=True)
-
+                        pin_memory=False)
 
 train_iterator = iter(train_loader)
 validate_iterator = iter(validate_loader)
@@ -222,7 +222,7 @@ kl_anneal = kl_annealing(args)
 # ============================================================
 # Training Function
 
-def train(x, cond):
+def train(x, cond, epoch):
 
     frame_predictor.zero_grad()
     posterior.zero_grad()
@@ -236,7 +236,7 @@ def train(x, cond):
     mse = 0
     kld = 0
 
-    h_seq = [encoder(x[i]) for i in range(args.n_past + args.n_future)]
+    h_seq = [encoder(x[i]) for i in range(args.n_past + args.n_future)]    
     use_teacher_forcing = True if random.random() < args.tfr else False
 
     for i in range(1, args.n_past + args.n_future):
@@ -249,6 +249,13 @@ def train(x, cond):
 
         z_t, mu, logvar = posterior(h_target)
 
+        # print(h_target.is_cuda)
+        # print(z_t.is_cuda)
+        # print(cond[i-1].is_cuda)
+
+        # cond[i-1] = cond[i-1].to("cuda:0")
+        # print(cond[i-1].is_cuda)
+        
         if use_teacher_forcing:
             h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
         else:
@@ -256,11 +263,11 @@ def train(x, cond):
 
         x_pred = decoder([h_pred, skip])
 
-        mse += mse_criterion(x_pred, x[i])
-        kld += kl_criterion(mu, logvar)
+        mse += mse_criterion(x_pred, x[i].to(device))
+        kld += kl_criterion(mu, logvar, args)
         # raise NotImplementedError
 
-    beta = kl_anneal.get_beta()
+    beta = kl_anneal.get_beta("monotonic", epoch)
     loss = mse + kld * beta
     loss.backward()
 
@@ -292,7 +299,9 @@ for epoch in range(start_epoch,  start_epoch + niter):
             train_iterator = iter(train_loader)
             seq, cond = next(train_iterator)
         
-        loss, mse, kld = train(seq, cond)
+        cond = cond.to(device)
+        
+        loss, mse, kld = train(seq, cond, epoch)
         epoch_loss += loss
         epoch_mse += mse
         epoch_kld += kld
@@ -322,7 +331,9 @@ for epoch in range(start_epoch,  start_epoch + niter):
             except StopIteration:
                 validate_iterator = iter(validate_loader)
                 validate_seq, validate_cond = next(validate_iterator)
-        
+
+            validate_cond = validate_cond.to(device)
+
             modules = {
                 'frame_predictor': frame_predictor,
                 'posterior': posterior,
@@ -330,8 +341,11 @@ for epoch in range(start_epoch,  start_epoch + niter):
                 'decoder': decoder,
             }
                 
-            pred_seq = pred(validate_seq, validate_cond, modules, args, device)
-            _, _, psnr = finn_eval_seq(validate_seq[args.n_past:], pred_seq[args.n_past:])
+            pred_seq, psnr = pred(validate_seq, validate_cond, modules, args, device)
+            # print("Shape of validate_seq[args.n_past:] is : "+str(np.shape(validate_seq[args.n_past:])))
+            # print("Shape of pred_seq[args.n_past:] is : "+str(np.shape(pred_seq[args.n_past:])))
+            # _, _, psnr = finn_eval_seq(validate_seq[args.n_past:], pred_seq[args.n_past:])
+
             psnr_list.append(psnr)
 
         ave_psnr = np.mean(np.concatenate(psnr))
@@ -346,6 +360,8 @@ for epoch in range(start_epoch,  start_epoch + niter):
             validate_iterator = iter(validate_loader)
             validate_seq, validate_cond = next(validate_iterator)
 
+        validate_cond = validate_cond.to(device)
+
         modules = {
             'frame_predictor': frame_predictor,
             'posterior': posterior,
@@ -353,5 +369,5 @@ for epoch in range(start_epoch,  start_epoch + niter):
             'decoder': decoder,
         }
 
-        plot_pred(validate_seq, validate_cond, modules, epoch, args, device)
+        plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name)
 
