@@ -301,8 +301,8 @@ def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name
                 row.append(gen_seq[s][t][i])
             gifs[t].append(row)
 
-    fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
-    save_np_img(fname, to_plot)
+    # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
+    # save_np_img(fname, to_plot)
 
     fname = '%s/plot/sample_%d.gif' % (args.log_dir, epoch) 
     save_gif(fname, gifs)
