@@ -12,6 +12,7 @@ from torch.autograd import Variable
 from torchvision import transforms
 from torchvision.utils import save_image
 from skimage import img_as_ubyte
+import os
 
 def normalize_data(args, dtype, sequence):
     sequence.transpose_(0, 1)
@@ -279,21 +280,30 @@ def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name
                 x_in = decoder([h, skip]).detach()
                 gen_seq[s].append(x_in)
 
-    to_plot = []
-    gifs = [ [] for t in range(args.n_eval) ]
-    nrow = min(args.batch_size, 1)
-    for i in range(nrow):
+
+    directory = args.log_dir + "/gen/epoch" + str(epoch)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    
+    # nrow = min(args.batch_size, 1)
+    for i in range(args.batch_size):
+
+        to_plot = []
+        gifs = [ [] for t in range(args.n_eval) ]
+
         # ground truth sequence
         row = [] 
         for t in range(args.n_eval):
             row.append(gt_seq[t][i])
-        to_plot.append(row)
 
-        for s in range(nsample):
-            row = []
-            for t in range(args.n_eval):
-                row.append(gen_seq[s][t][i]) 
-            to_plot.append(row)
+        # to_plot.append(row)
+
+        # for s in range(nsample):
+        #     row = []
+        #     for t in range(args.n_eval):
+        #         row.append(gen_seq[s][t][i]) 
+        #     to_plot.append(row)
         for t in range(args.n_eval):
             row = []
             row.append(gt_seq[t][i])
@@ -304,8 +314,8 @@ def plot_pred(x, encoder, decoder, frame_predictor, posterior, epoch, args, name
     # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
     # save_np_img(fname, to_plot)
 
-    fname = '%s/plots/sample_%d.gif' % (args.log_dir, epoch) 
-    save_gif(fname, gifs)
+        fname = directory + "/sample_" + str(i) + ".gif"
+        save_gif(fname, gifs)
 
 
 
