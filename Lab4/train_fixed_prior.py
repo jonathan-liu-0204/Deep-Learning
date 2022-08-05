@@ -236,7 +236,11 @@ def train(x, cond, epoch):
     posterior.zero_grad()
     encoder.zero_grad()
     decoder.zero_grad()
-    optimizer.zero_grad()
+
+    frame_predictor_optimizer.zero_grad()
+    posterior_optimizer.zero_grad()
+    encoder_optimizer.zero_grad()
+    decoder_optimizer.zero_grad()
 
     # initialize the hidden state.
     frame_predictor.hidden = frame_predictor.init_hidden()
