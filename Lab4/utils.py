@@ -12,6 +12,17 @@ from torch.autograd import Variable
 from torchvision import transforms
 from torchvision.utils import save_image
 
+def sequence_input(seq, dtype):
+    return [Variable(x.type(dtype)) for x in seq]
+
+def normalize_data(opt, dtype, sequence):
+    if opt.dataset == 'smmnist' or opt.dataset == 'kth' or opt.dataset == 'bair' :
+        sequence.transpose_(0, 1)
+        sequence.transpose_(3, 4).transpose_(2, 3)
+    else:
+        sequence.transpose_(0, 1)
+
+    return sequence_input(sequence, dtype)
 
 def kl_criterion(mu, logvar, args):
   # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
@@ -114,3 +125,185 @@ def init_weights(m):
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
+
+def pred(validate_seq, validate_cond, modules, args, device):
+
+    frame_predictor = modules["frame_predictor"]
+    posterior = modules["posterior"]
+    encoder = modules["encoder"]
+    decoder = modules["decoder"]
+
+    frame_predictor.to(device)
+    posterior.to(device)
+    encoder.to(device)
+    decoder.to(device)
+
+    nsample = 5
+    gen_seq = [[] for i in range(args.nsample)]
+    # gt_seq = [validate_seq[i] for i in range(len(validate_seq))]
+
+    h_seq = [encoder(validate_seq[i]) for i in range(args.n_past)]
+
+    for s in nsample:
+        frame_predictor.hidden = frame_predictor.init_hidden()
+        gen_seq[s].append(validate_seq[0])
+        x_in = validate_seq[0]
+
+        for i in range(1, args.n_eval):
+            if args.last_frame_skip or i < args.n_past:	
+                h, skip = h_seq[i-1]
+                h = h.detach()
+            elif i < args.n_past:
+                h, _ = h_seq[i-1]
+                h = h.detach()
+
+            if i < args.n_past:
+                z_t, _, _ = posterior(h_seq[i][0])
+                frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)) 
+                x_in = validate_seq[i]
+                gen_seq[s].append(x_in)
+            else:
+                z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
+                h = frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)).detach()
+                x_in = decoder([h, skip]).detach()
+                gen_seq[s].append(x_in)
+
+    return gen_seq
+
+def is_sequence(arg):
+    return (not hasattr(arg, "strip") and
+            not type(arg) is np.ndarray and
+            not hasattr(arg, "dot") and
+            (hasattr(arg, "__getitem__") or
+            hasattr(arg, "__iter__")))
+
+def image_tensor(inputs, padding=1):
+    # assert is_sequence(inputs)
+    assert len(inputs) > 0
+    # print(inputs)
+
+    # if this is a list of lists, unpack them all and grid them up
+    if is_sequence(inputs[0]) or (hasattr(inputs, "dim") and inputs.dim() > 4):
+        images = [image_tensor(x) for x in inputs]
+        if images[0].dim() == 3:
+            c_dim = images[0].size(0)
+            x_dim = images[0].size(1)
+            y_dim = images[0].size(2)
+        else:
+            c_dim = 1
+            x_dim = images[0].size(0)
+            y_dim = images[0].size(1)
+
+        result = torch.ones(c_dim,
+                            x_dim * len(images) + padding * (len(images)-1),
+                            y_dim)
+        for i, image in enumerate(images):
+            result[:, i * x_dim + i * padding :
+                   (i+1) * x_dim + i * padding, :].copy_(image)
+
+        return result
+
+    # if this is just a list, make a stacked image
+    else:
+        images = [x.data if isinstance(x, torch.autograd.Variable) else x
+                  for x in inputs]
+        # print(images)
+        if images[0].dim() == 3:
+            c_dim = images[0].size(0)
+            x_dim = images[0].size(1)
+            y_dim = images[0].size(2)
+        else:
+            c_dim = 1
+            x_dim = images[0].size(0)
+            y_dim = images[0].size(1)
+
+        result = torch.ones(c_dim,
+                            x_dim,
+                            y_dim * len(images) + padding * (len(images)-1))
+        for i, image in enumerate(images):
+            result[:, :, i * y_dim + i * padding :
+                   (i+1) * y_dim + i * padding].copy_(image)
+        return result
+
+def save_tensors_image(filename, inputs, padding=1):
+    images = image_tensor(inputs, padding)
+    return save_image(filename, images)
+
+def save_gif(filename, inputs, duration=0.25):
+    images = []
+    for tensor in inputs:
+        img = image_tensor(tensor, padding=0)
+        img = img.cpu()
+        img = img.transpose(0,1).transpose(1,2).clamp(0,1)
+        images.append(img.numpy())
+    imageio.mimsave(filename, images, duration=duration)
+
+def plot_pred(validate_seq, validate_cond, modules, epoch, args, device):
+    frame_predictor = modules["frame_predictor"]
+    posterior = modules["posterior"]
+    encoder = modules["encoder"]
+    decoder = modules["decoder"]
+
+    frame_predictor.to(device)
+    posterior.to(device)
+    encoder.to(device)
+    decoder.to(device)
+
+    nsample = 5
+    gen_seq = [[] for i in range(args.nsample)]
+    gt_seq = [validate_seq[i] for i in range(len(validate_seq))]
+
+    h_seq = [encoder(validate_seq[i]) for i in range(args.n_past)]
+
+    for s in nsample:
+        frame_predictor.hidden = frame_predictor.init_hidden()
+        gen_seq[s].append(validate_seq[0])
+        x_in = validate_seq[0]
+
+        for i in range(1, args.n_eval):
+            if args.last_frame_skip or i < args.n_past:	
+                h, skip = h_seq[i-1]
+                h = h.detach()
+            elif i < args.n_past:
+                h, _ = h_seq[i-1]
+                h = h.detach()
+
+            if i < args.n_past:
+                z_t, _, _ = posterior(h_seq[i][0])
+                frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)) 
+                x_in = validate_seq[i]
+                gen_seq[s].append(x_in)
+            else:
+                z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
+                h = frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)).detach()
+                x_in = decoder([h, skip]).detach()
+                gen_seq[s].append(x_in)
+
+    to_plot = []
+    gifs = [ [] for t in range(args.n_eval) ]
+    nrow = min(args.batch_size, 10)
+
+    for i in range(nrow):
+        # ground truth sequence
+        row = [] 
+        for t in range(args.n_eval):
+            row.append(gt_seq[t][i])
+        to_plot.append(row)
+
+        for s in range(nsample):
+            row = []
+            for t in range(args.n_eval):
+                row.append(gen_seq[s][t][i]) 
+            to_plot.append(row)
+        for t in range(args.n_eval):
+            row = []
+            row.append(gt_seq[t][i])
+            for s in range(nsample):
+                row.append(gen_seq[s][t][i])
+            gifs[t].append(row)
+
+    fname = '%s/gen/sample_%d.png' % (args.log_dir, epoch) 
+    save_tensors_image(fname, to_plot)
+
+    fname = '%s/gen/sample_%d.gif' % (args.log_dir, epoch) 
+    save_gif(fname, gifs)
