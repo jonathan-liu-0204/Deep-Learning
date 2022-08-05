@@ -27,7 +27,7 @@ class lstm(nn.Module):
         return hidden
 
     def forward(self, input):
-        embedded = self.embed(input.view(-1, self.input_size))
+        embedded = self.embed(input)
         h_in = embedded
         for i in range(self.n_layers):
             self.hidden[i] = self.lstm[i](h_in, self.hidden[i])
