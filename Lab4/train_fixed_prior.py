@@ -245,7 +245,7 @@ def train(x, cond, epoch):
     kld = 0
 
     h_seq = [encoder(x[i]) for i in range(args.n_past + args.n_future)]    
-    use_teacher_forcing = True if random.random() < args.tfr else False
+    # use_teacher_forcing = True if random.random() < args.tfr else False
 
     for i in range(1, args.n_past + args.n_future):
         h_target = h_seq[i][0]
@@ -256,7 +256,7 @@ def train(x, cond, epoch):
             h = h_seq[i-1][0]
 
         z_t, mu, logvar = posterior(h_target)
-
+        h_pred = frame_predictor(torch.cat([h_target, z_t], 1))
         # print(h_target.is_cuda)
         # print(z_t.is_cuda)
         # print(cond[i-1].is_cuda)
@@ -264,10 +264,10 @@ def train(x, cond, epoch):
         # cond[i-1] = cond[i-1].to("cuda:0")
         # print(cond[i-1].is_cuda)
         
-        if use_teacher_forcing:
-            h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
-        else:
-            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
+        # if use_teacher_forcing:
+        #     h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
+        # else:
+        #     h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
 
         x_pred = decoder([h_pred, skip])
 
@@ -275,11 +275,17 @@ def train(x, cond, epoch):
         kld += kl_criterion(mu, logvar, args)
         # raise NotImplementedError
 
-    beta = kl_anneal.get_beta("monotonic", epoch)
-    loss = mse + kld * beta
+    # beta = kl_anneal.get_beta("monotonic", epoch)
+    # loss = mse + kld * beta
+    loss = mse + kld*args.beta
     loss.backward()
 
-    optimizer.step()
+    frame_predictor_optimizer.step()
+    posterior_optimizer.step()
+    encoder_optimizer.step()
+    decoder_optimizer.step()
+
+    # optimizer.step()
 
     return loss.detach().cpu().numpy() / (args.n_past + args.n_future), mse.detach().cpu().numpy() / (args.n_past + args.n_future), kld.detach().cpu().numpy() / (args.n_future + args.n_past)
 
@@ -288,9 +294,11 @@ def train(x, cond, epoch):
 
 progress = tqdm(total = args.niter)
 best_val_psnr = 0
-tfr_value = args.tfr
+# tfr_value = args.tfr
 
 for epoch in range(start_epoch,  start_epoch + niter):
+    progress.update(1)
+
     frame_predictor.train()
     posterior.train()
     encoder.train()
@@ -316,13 +324,12 @@ for epoch in range(start_epoch,  start_epoch + niter):
         epoch_mse += mse
         epoch_kld += kld
 
-    if epoch >= args.tfr_start_decay_epoch:
-        tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
+    # if epoch >= args.tfr_start_decay_epoch:
+    #     tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
 
-        if tfr_value < args.tfr_lower_bound:
-            tfr_value = args.tfr_lower_bound
+    #     if tfr_value < args.tfr_lower_bound:
+    #         tfr_value = args.tfr_lower_bound
     
-    progress.update(1)
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
         train_record.write(('[epoch: %02d] loss: %.8f | mse loss: %.8f | kld loss: %.8f\n' % (epoch, epoch_loss  / args.epoch_size, epoch_mse / args.epoch_size, epoch_kld / args.epoch_size)))
@@ -332,63 +339,74 @@ for epoch in range(start_epoch,  start_epoch + niter):
     decoder.eval()
     posterior.eval()
 
-    if epoch % 5 == 0:
-        psnr_list = []
+    try:
+        validate_seq, validate_cond = next(validate_iterator)
+    except StopIteration:
+        validate_iterator = iter(validate_loader)
+        validate_seq, validate_cond = next(validate_iterator)
 
-        for i in range(len(validate_data) // args.batch_size):
-            try:
-                validate_seq, validate_cond = next(validate_iterator)
-            except StopIteration:
-                validate_iterator = iter(validate_loader)
-                validate_seq, validate_cond = next(validate_iterator)
+    plot_pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
-            validate_cond = validate_cond.to(device)
 
-            modules = {
-                'frame_predictor': frame_predictor,
-                'posterior': posterior,
-                'encoder': encoder,
-                'decoder': decoder,
-            }
+
+
+    # if epoch % 5 == 0:
+    #     psnr_list = []
+
+    #     for i in range(len(validate_data) // args.batch_size):
+    #         try:
+    #             validate_seq, validate_cond = next(validate_iterator)
+    #         except StopIteration:
+    #             validate_iterator = iter(validate_loader)
+    #             validate_seq, validate_cond = next(validate_iterator)
+
+    #         validate_cond = validate_cond.to(device)
+
+    #         modules = {
+    #             'frame_predictor': frame_predictor,
+    #             'posterior': posterior,
+    #             'encoder': encoder,
+    #             'decoder': decoder,
+    #         }
                 
-            pred_seq, gt_seq = pred(validate_seq, validate_cond, modules, args, device)
-            # print("Shape of validate_seq[args.n_past:] is : "+str(np.shape(validate_seq[args.n_past:])))
-            # print("Shape of pred_seq[args.n_past:] is : "+str(np.shape(pred_seq[args.n_past:])))
-            _, _, psnr = finn_eval_seq(gt_seq[args.n_past:], pred_seq[args.n_past:])
+    #         pred_seq, gt_seq = pred(validate_seq, validate_cond, modules, args, device)
+    #         # print("Shape of validate_seq[args.n_past:] is : "+str(np.shape(validate_seq[args.n_past:])))
+    #         # print("Shape of pred_seq[args.n_past:] is : "+str(np.shape(pred_seq[args.n_past:])))
+    #         _, _, psnr = finn_eval_seq(gt_seq[args.n_past:], pred_seq[args.n_past:])
     
-            psnr_list.append(psnr)
+    #         psnr_list.append(psnr)
 
-        ave_psnr = np.mean(np.concatenate(psnr))
+    #     ave_psnr = np.mean(np.concatenate(psnr))
 
-        with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
-            train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
+    #     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
+    #         train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
 
-    if epoch % 5 == 0:
-        try:
-            validate_seq, validate_cond = next(validate_iterator)
-        except StopIteration:
-            validate_iterator = iter(validate_loader)
-            validate_seq, validate_cond = next(validate_iterator)
+    # if epoch % 5 == 0:
+    #     try:
+    #         validate_seq, validate_cond = next(validate_iterator)
+    #     except StopIteration:
+    #         validate_iterator = iter(validate_loader)
+    #         validate_seq, validate_cond = next(validate_iterator)
 
-        validate_cond = validate_cond.to(device)
+    #     validate_cond = validate_cond.to(device)
 
-        modules = {
-            'frame_predictor': frame_predictor,
-            'posterior': posterior,
-            'encoder': encoder,
-            'decoder': decoder,
-        }
+    #     modules = {
+    #         'frame_predictor': frame_predictor,
+    #         'posterior': posterior,
+    #         'encoder': encoder,
+    #         'decoder': decoder,
+    #     }
 
-        plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name)
+    #     plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name)
 
         # save the model
-        save_path = args.log_dir + "/" + epoch + "_model.pth"
-        torch.save({'encoder': encoder,
-                    'decoder': decoder,
-                    'frame_predictor': frame_predictor,
-                    'posterior': posterior,
-                    'args': args}, 
-                     save_path)
+    save_path = args.log_dir + "/" + epoch + "_model.pth"
+    torch.save({'encoder': encoder,
+                'decoder': decoder,
+                'frame_predictor': frame_predictor,
+                'posterior': posterior,
+                'args': args}, 
+                    save_path)
 
-        if epoch % 10 == 0:
-            print('log dir: %s' % args.log_dir)
+    if epoch % 10 == 0:
+        print('log dir: %s' % args.log_dir)
