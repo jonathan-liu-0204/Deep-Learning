@@ -136,6 +136,82 @@ def init_weights(m):
 
 def pred(validate_seq, validate_cond, modules, args, device):
 
+    # frame_predictor = modules["frame_predictor"]
+    # posterior = modules["posterior"]
+    # encoder = modules["encoder"]
+    # decoder = modules["decoder"]
+
+    # frame_predictor.to(device)
+    # posterior.to(device)
+    # encoder.to(device)
+    # decoder.to(device)
+
+    # frame_predictor.hidden = frame_predictor.init_hidden()
+    # posterior.hidden = posterior.init_hidden()
+    # posterior_gen = []
+    # posterior_gen.append(validate_seq[0])
+    # x_in = validate_seq[0]
+
+    # nsample = 5
+
+    # for i in range(1, args.n_eval):
+    #     h = encoder(x_in)
+    #     h_target = encoder(validate_seq[i])[0].detach()
+    #     if args.last_frame_skip or i < args.n_past:	
+    #         h, skip = h
+    #     else:
+    #         h, _ = h
+    #     h = h.detach()
+    #     _, z_t, _= posterior(h_target) # take the mean
+    #     if i < args.n_past:
+    #         frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)) 
+    #         posterior_gen.append(validate_seq[i])
+    #         x_in = validate_seq[i]
+    #     else:
+    #         h_pred = frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)).detach()
+    #         x_in = decoder([h_pred, skip]).detach()
+    #         posterior_gen.append(x_in)
+
+
+    # ssim = np.zeros((args.batch_size, nsample, args.n_future))
+    # psnr = np.zeros((args.batch_size, nsample, args.n_future))
+    # all_gen = []
+
+    # for s in range(nsample):
+    #     gen_seq = []
+    #     gt_seq = []
+    #     frame_predictor.hidden = frame_predictor.init_hidden()
+    #     posterior.hidden = posterior.init_hidden()
+    #     x_in = validate_seq[0]
+    #     all_gen.append([])
+    #     all_gen[s].append(x_in)
+    #     for i in range(1, args.n_eval):
+    #         h = encoder(x_in)
+    #         if args.last_frame_skip or i < args.n_past:	
+    #             h, skip = h
+    #         else:
+    #             h, _ = h
+    #         h = h.detach()
+    #         if i < args.n_past:
+    #             h_target = encoder(validate_seq[i])[0].detach()
+    #             _, z_t, _ = posterior(h_target)
+    #         else:
+    #             z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
+    #         if i < args.n_past:
+    #             frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1))
+    #             x_in = validate_seq[i]
+    #             all_gen[s].append(x_in)
+    #         else:
+    #             h = frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)).detach()
+    #             x_in = decoder([h, skip]).detach()
+    #             gen_seq.append(x_in.data.cpu().numpy())
+    #             gt_seq.append(validate_seq[i].data.cpu().numpy())
+    #             all_gen[s].append(x_in)
+
+    #     _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq, gen_seq)
+
+    # return gen_seq, psnr
+
     frame_predictor = modules["frame_predictor"]
     posterior = modules["posterior"]
     encoder = modules["encoder"]
@@ -146,101 +222,37 @@ def pred(validate_seq, validate_cond, modules, args, device):
     encoder.to(device)
     decoder.to(device)
 
-    frame_predictor.hidden = frame_predictor.init_hidden()
-    posterior.hidden = posterior.init_hidden()
-    posterior_gen = []
-    posterior_gen.append(validate_seq[0])
-    x_in = validate_seq[0]
-
     nsample = 5
+    gen_seq = [[] for i in range(nsample)]
+    gt_seq = [validate_seq[i] for i in range(len(validate_seq))]
 
-    for i in range(1, args.n_eval):
-        h = encoder(x_in)
-        h_target = encoder(validate_seq[i])[0].detach()
-        if args.last_frame_skip or i < args.n_past:	
-            h, skip = h
-        else:
-            h, _ = h
-        h = h.detach()
-        _, z_t, _= posterior(h_target) # take the mean
-        if i < args.n_past:
-            frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)) 
-            posterior_gen.append(validate_seq[i])
-            x_in = validate_seq[i]
-        else:
-            h_pred = frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)).detach()
-            x_in = decoder([h_pred, skip]).detach()
-            posterior_gen.append(x_in)
-
-
-    ssim = np.zeros((args.batch_size, nsample, args.n_future))
-    psnr = np.zeros((args.batch_size, nsample, args.n_future))
-    all_gen = []
+    h_seq = [encoder(validate_seq[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
-        gen_seq = []
-        gt_seq = []
         frame_predictor.hidden = frame_predictor.init_hidden()
-        posterior.hidden = posterior.init_hidden()
+        gen_seq[s].append(validate_seq[0])
         x_in = validate_seq[0]
-        all_gen.append([])
-        all_gen[s].append(x_in)
+
         for i in range(1, args.n_eval):
-            h = encoder(x_in)
             if args.last_frame_skip or i < args.n_past:	
-                h, skip = h
-            else:
-                h, _ = h
-            h = h.detach()
+                h, skip = h_seq[i-1]
+                h = h.detach()
+            elif i < args.n_past:
+                h, _ = h_seq[i-1]
+                h = h.detach()
+
             if i < args.n_past:
-                h_target = encoder(validate_seq[i])[0].detach()
-                _, z_t, _ = posterior(h_target)
+                z_t, _, _ = posterior(h_seq[i][0])
+                frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)) 
+                x_in = validate_seq[i]
+                gen_seq[s].append(x_in)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-            if i < args.n_past:
-                frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1))
-                x_in = validate_seq[i]
-                all_gen[s].append(x_in)
-            else:
                 h = frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
-                gen_seq.append(x_in.data.cpu().numpy())
-                gt_seq.append(validate_seq[i].data.cpu().numpy())
-                all_gen[s].append(x_in)
-
-        _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq, gen_seq)
-
-    return gen_seq, psnr
-
-    # nsample = 5
-    # gen_seq = [[] for i in range(nsample)]
-    # gt_seq = [validate_seq[i] for i in range(len(validate_seq))]
-
-    # h_seq = [encoder(validate_seq[i]) for i in range(args.n_past)]
-
-    # for s in range(nsample):
-        
-    #     gen_seq[s].append(validate_seq[0])
-    #     x_in = validate_seq[0]
-
-    #     for i in range(1, args.n_eval):
-    #         if args.last_frame_skip or i < args.n_past:	
-    #             h, skip = h_seq[i-1]
-    #             h = h.detach()
-    #         elif i < args.n_past:
-    #             h, _ = h_seq[i-1]
-    #             h = h.detach()
-
-    #         if i < args.n_past:
-    #             z_t, _, _ = posterior(h_seq[i][0])
-    #             frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)) 
-    #             x_in = validate_seq[i]
-    #             gen_seq[s].append(x_in)
-    #         else:
-    #             z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-    #             h = frame_predictor(torch.cat([h, z_t, validate_cond[i-1]], 1)).detach()
-    #             x_in = decoder([h, skip]).detach()
-    #             gen_seq[s].append(x_in)
+                gen_seq[s].append(x_in)
+    
+    return gen_seq, gt_seq
 
 
 def is_sequence(arg):

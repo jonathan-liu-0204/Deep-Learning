@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--batch_size', default=12, type=int, help='batch size')
     parser.add_argument('--log_dir', default='./logs/fp', help='base directory to save logs')
     parser.add_argument('--model_dir', default='', help='base directory to save logs')
-    parser.add_argument('--data_root', default='./data/processed_data', help='root directory for data')
+    parser.add_argument('--data_root', default='./data', help='root directory for data')
     parser.add_argument('--optimizer', default='adam', help='optimizer to train with')
     parser.add_argument('--niter', type=int, default=300, help='number of epochs to train for')
     parser.add_argument('--epoch_size', type=int, default=600, help='epoch size')
@@ -299,6 +299,8 @@ for epoch in range(start_epoch,  start_epoch + niter):
             train_iterator = iter(train_loader)
             seq, cond = next(train_iterator)
         
+        # print(cond)
+
         cond = cond.to(device)
         
         loss, mse, kld = train(seq, cond, epoch)
@@ -341,11 +343,11 @@ for epoch in range(start_epoch,  start_epoch + niter):
                 'decoder': decoder,
             }
                 
-            pred_seq, psnr = pred(validate_seq, validate_cond, modules, args, device)
+            pred_seq, gt_seq = pred(validate_seq, validate_cond, modules, args, device)
             # print("Shape of validate_seq[args.n_past:] is : "+str(np.shape(validate_seq[args.n_past:])))
             # print("Shape of pred_seq[args.n_past:] is : "+str(np.shape(pred_seq[args.n_past:])))
-            # _, _, psnr = finn_eval_seq(validate_seq[args.n_past:], pred_seq[args.n_past:])
-
+            _, _, psnr = finn_eval_seq(gt_seq[args.n_past:], pred_seq[args.n_past:])
+    
             psnr_list.append(psnr)
 
         ave_psnr = np.mean(np.concatenate(psnr))
