@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 from scipy.misc import imread
+import imageio
 
 default_transform = transforms.Compose([
     transforms.ToTensor(),
@@ -54,7 +55,7 @@ class bair_robot_pushing_dataset(Dataset):
         image_seq = []
         for i in range(self.seq_len):
             fname = '{}/{}.png'.format(self.cur_dir, i)
-            im = imread(fname).reshape(1, 64, 64, 3)
+            im = imageio.imread(fname).reshape(1, 64, 64, 3)
             image_seq.append(im/255.)
             # img = Image.open(fname)
             # image_seq.append(self.transform(img))
