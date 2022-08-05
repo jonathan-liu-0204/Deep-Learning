@@ -260,7 +260,12 @@ def train(x, cond, epoch):
             h = h_seq[i-1][0]
 
         z_t, mu, logvar = posterior(h_target)
+
+        print(h.shape())
+        print(z_t.shape())
         h_pred = frame_predictor(torch.cat([h, z_t], 1))
+
+        
         # print(h_target.is_cuda)
         # print(z_t.is_cuda)
         # print(cond[i-1].is_cuda)
