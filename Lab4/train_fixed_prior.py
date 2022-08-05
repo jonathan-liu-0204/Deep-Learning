@@ -315,7 +315,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     progress.update(1)
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
-        train_record.write(('[epoch: %02d] loss: %.5f | mse loss: %.5f | kld loss: %.5f\n' % (epoch, epoch_loss  / args.epoch_size, epoch_mse / args.epoch_size, epoch_kld / args.epoch_size)))
+        train_record.write(('[epoch: %02d] loss: %.8f | mse loss: %.8f | kld loss: %.8f\n' % (epoch, epoch_loss  / args.epoch_size, epoch_mse / args.epoch_size, epoch_kld / args.epoch_size)))
 
     frame_predictor.eval()
     encoder.eval()
@@ -351,9 +351,9 @@ for epoch in range(start_epoch,  start_epoch + niter):
         ave_psnr = np.mean(np.concatenate(psnr))
 
         with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
-            train_record.write(('====================== validate psnr = {:.5f} ========================\n'.format(ave_psnr)))
+            train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
 
-    if epoch % 20 == 0:
+    if epoch % 5 == 0:
         try:
             validate_seq, validate_cond = next(validate_iterator)
         except StopIteration:
@@ -371,3 +371,14 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
         plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name)
 
+        # save the model
+        save_path = args.log_dir + "/" + epoch + "_model.pth"
+        torch.save({'encoder': encoder,
+                    'decoder': decoder,
+                    'frame_predictor': frame_predictor,
+                    'posterior': posterior,
+                    'args': args}, 
+                     save_path)
+
+        if epoch % 10 == 0:
+            print('log dir: %s' % args.log_dir)
