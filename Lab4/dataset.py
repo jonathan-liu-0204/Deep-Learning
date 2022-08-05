@@ -40,7 +40,8 @@ class bair_robot_pushing_dataset(Dataset):
             np.random.seed(seed)
             
     def __len__(self):
-        return len(self.dirs)
+        # return len(self.dirs)
+        return 10000
         
     def get_seq(self):
         if self.ordered:
