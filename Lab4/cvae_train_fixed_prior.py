@@ -370,10 +370,10 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     pred_seq, gt_seq = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
-    print("pred_seq.size()")
-    print(pred_seq.size())
-    print("gt_seq.size()")
-    print(gt_seq.size())
+    print("pred_seq shape")
+    print([len(a) for a in pred_seq])
+    print("gt_seq shape")
+    print([len(a) for a in gt_seq])
     print()
     # psnr = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
