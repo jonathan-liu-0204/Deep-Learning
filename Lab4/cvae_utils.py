@@ -496,9 +496,13 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
             row = []
             row_text = []
             row.append(gt_seq[t][i])
+
+            row_text = ['Ground\ntruth', 'Approx.\nposterior', 'Best PSNR', 'Random\nsample 1', 'Random\nsample 2', 'Random\nsample 3']
+
             for s in range(nsample):
+                print("input size: ", gen_seq[s][t][i].size())
                 row.append(add_border(gen_seq[s][t][i], color))
-                row_text.append('Ground\ntruth')
+                # row_text.append('Ground\ntruth')
                 # if s == 0:
                 #     text[t].append('Ground\ntruth')
             gifs[t].append(row)
@@ -528,7 +532,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         #         text[t].append('Random\nsample %d' % (s+1))
 
         fname = directory + "/sample_" + str(i) + ".gif" 
-        save_gif_with_text(fname, gifs, text)
+        save_gif_with_text(fname, gifs, row_text)
     # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
     # save_np_img(fname, to_plot)
 
