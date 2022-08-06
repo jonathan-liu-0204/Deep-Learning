@@ -486,36 +486,46 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         #         row.append(gen_seq[s][t][i]) 
         #     to_plot.append(row)
 
-        # for t in range(args.n_eval):
-        #     row = []
-        #     row.append(gt_seq[t][i])
-        #     for s in range(nsample):
-        #         row.append(gen_seq[s][t][i])
-        #     gifs[t].append(row)
-
         for t in range(args.n_eval):
-            # gt 
-            gifs[t].append(add_border(x[t][i], 'green'))
-            text[t].append('Ground\ntruth')
-            #posterior 
+
             if t < args.n_past:
                 color = 'green'
             else:
                 color = 'red'
-            gifs[t].append(add_border(posterior_gen[t][i], color))
-            text[t].append('Approx.\nposterior')
-            # best 
-            if t < args.n_past:
-                color = 'green'
-            else:
-                color = 'red'
-            sidx = ordered[-1]
-            gifs[t].append(add_border(gen_seq[sidx][t][i], color))
-            text[t].append('Best SSIM')
-            # random 3
-            for s in range(len(rand_sidx)):
-                gifs[t].append(add_border(gen_seq[rand_sidx[s]][t][i], color))
-                text[t].append('Random\nsample %d' % (s+1))
+
+            row = []
+            row_text = []
+            row.append(gt_seq[t][i])
+            for s in range(nsample):
+                row.append(add_border(gen_seq[s][t][i], color))
+                row_text.append('Ground\ntruth')
+                # if s == 0:
+                #     text[t].append('Ground\ntruth')
+            gifs[t].append(row)
+
+        # for t in range(args.n_eval):
+        #     # gt 
+        #     gifs[t].append(add_border(x[t], 'green'))
+        #     text[t].append('Ground\ntruth')
+        #     #posterior 
+        #     if t < args.n_past:
+        #         color = 'green'
+        #     else:
+        #         color = 'red'
+        #     gifs[t].append(add_border(posterior_gen[t], color))
+        #     text[t].append('Approx.\nposterior')
+        #     # best 
+        #     if t < args.n_past:
+        #         color = 'green'
+        #     else:
+        #         color = 'red'
+        #     sidx = ordered[-1]
+        #     gifs[t].append(add_border(gen_seq[sidx][t][i], color))
+        #     text[t].append('Best SSIM')
+        #     # random 3
+        #     for s in range(len(rand_sidx)):
+        #         gifs[t].append(add_border(gen_seq[rand_sidx[s]][t][i], color))
+        #         text[t].append('Random\nsample %d' % (s+1))
 
         fname = directory + "/sample_" + str(i) + ".gif" 
         save_gif_with_text(fname, gifs, text)
