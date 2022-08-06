@@ -361,11 +361,23 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     pred_seq, gt_seq = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
-    _, _, psnr = finn_eval_seq(gt_seq[args.n_past:], pred_seq[args.n_past:])
-    
-    psnr_list.append(psnr)
+    for i in args.batch_size:
 
-    ave_psnr = np.mean(np.concatenate(psnr))
+        psnr_gen = [ [] for t in range(args.n_eval) ]
+        psnr_gt  = [ [] for t in range(args.n_eval) ]
+
+        for t in range(args.n_eval):
+            row = []
+            psnr_gt.append(gt_seq[t][i])
+            for s in range(5): # nsample = 5
+                row.append(pred_seq[s][t][i])
+            psnr_gen[t].append(row)
+
+        _, _, psnr = finn_eval_seq(gt_seq[args.n_past:], pred_seq[args.n_past:])
+        
+        psnr_list.append(psnr)
+
+    ave_psnr = np.mean(np.concatenate(psnr_list))
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
         train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
