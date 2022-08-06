@@ -92,12 +92,12 @@ def finn_eval_seq(gt, pred):
             # origin = gt[t][i]
             # predict = pred[t][i]
             for c in range(origin.shape[0]):
-                res = finn_ssim(origin[c][c], predict[c][c]).mean()
+                res = finn_ssim(origin[c], predict[c]).mean()
                 if math.isnan(res):
                     ssim[i, t] += -1
                 else:
                     ssim[i, t] += res
-                psnr[i, t] += finn_psnr(origin[c][c], predict[c][c])
+                psnr[i, t] += finn_psnr(origin[c], predict[c])
             ssim[i, t] /= origin.shape[0]
             psnr[i, t] /= origin.shape[0]
             mse[i, t] = mse_metric(origin, predict)
