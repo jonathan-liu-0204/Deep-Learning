@@ -568,6 +568,7 @@ def save_gif_with_text(filename, inputs, text, duration=0.25):
     imageio.mimsave(filename, images, duration=duration)
 
 def draw_text_tensor(tensor, text):
+    tensor = torch.as_tensor(tensor)
     np_x = tensor.transpose(0, 1).transpose(1, 2).data.cpu().numpy()
     pil = Image.fromarray(np.uint8(np_x*255))
     draw = ImageDraw.Draw(pil)
