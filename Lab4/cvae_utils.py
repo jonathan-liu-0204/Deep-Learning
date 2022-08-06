@@ -157,7 +157,7 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
 
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
-        gen_seq[s].append(x[0])
+        # gen_seq[s].append(x[0])
         x_in = x[0]
 
         for i in range(1, args.n_eval):
