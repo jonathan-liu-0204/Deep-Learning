@@ -66,8 +66,10 @@ def finn_eval_seq(gt, pred):
     mse = np.zeros((bs, T))
     for i in range(bs):
         for t in range(T):
-            origin = gt[t][i].detach().cpu().numpy()
-            predict = pred[t][i].detach().cpu().numpy()
+            origin = gt[t][i]
+            predict = pred[t][i]
+            # origin = gt[t][i].detach().cpu().numpy()
+            # predict = pred[t][i].detach().cpu().numpy()
 
             print("origin.shape")
             print(origin.shape)
