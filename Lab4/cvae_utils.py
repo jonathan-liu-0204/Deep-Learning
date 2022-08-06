@@ -162,6 +162,9 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
         # gen_seq[s].append(x[0])
         x_in = x[0]
 
+        gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
+        gt_seq.append(x[0].data.cpu().numpy()) #change back when plotting
+
         for i in range(1, args.n_eval):
             if args.last_frame_skip or i < args.n_past:	
                 h, skip = h_seq[i-1]
