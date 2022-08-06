@@ -407,7 +407,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     # for i in range(args.batch_size):
         # for t in range(args.n_past, args.n_eval):
     for s in range(5): # nsample = 5
-        _, _, psnr = finn_eval_seq(gt_seq[s][:][:], pred_seq[s][:][:])
+        _, _, psnr = finn_eval_seq(gt_seq[s][args.n_past:][:], pred_seq[s][args.n_past:][:])
         psnr_list.append(psnr)
 
     print("psnr_list")
