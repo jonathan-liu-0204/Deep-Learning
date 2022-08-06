@@ -500,8 +500,8 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
             row_text = ['Ground\ntruth', 'Approx.\nposterior', 'Best PSNR', 'Random\nsample 1', 'Random\nsample 2', 'Random\nsample 3']
 
             for s in range(nsample):
-                print("input x len: ", len(gen_seq[s][t][i]))
-                print("input[0] len: ", len(gen_seq[s][t][i][0]))
+                # print("input x len: ", len(gen_seq[s][t][i]))
+                # print("input[0] len: ", len(gen_seq[s][t][i][0]))
                 row.append(add_border(gen_seq[s][t][i], color))
                 # row_text.append('Ground\ntruth')
                 # if s == 0:
@@ -541,10 +541,11 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         # save_gif(fname, gifs)
 
 def add_border(input, color, pad=1):
-    # w = input.size()[1]
-    # nc = input.size()[0]
-    w = len(input)
-    nc = len(input)
+    input = torch.from_numpy(input)
+    w = input.size()[1]
+    nc = input.size()[0]
+    # w = len(input)
+    # nc = len(input)
     px = Variable(torch.zeros(3, w+2*pad+30, w+2*pad))
     if color == 'red':
         px[0] =0.7 
