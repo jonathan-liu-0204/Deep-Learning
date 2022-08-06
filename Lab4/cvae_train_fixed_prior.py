@@ -226,15 +226,15 @@ class kl_annealing():
     
     def get_beta(self, mode, epochs):
         if mode == "monotonic":
-            if epochs > 20:
+            if epochs > 100:
                 beta = 1
             else:
-                beta = 0.05 * epochs
+                beta = 0.05 * (epochs % 100)
         else: #"cyclical"
-            if epochs % 20 > 10:
+            if epochs % 100 > 50:
                 beta = 1
             else:
-                beta = 0.1 * epochs
+                beta = 0.01 * (epochs % 100)
         return beta
         # raise NotImplementedError
 
@@ -295,6 +295,12 @@ def train(x, cond, epoch):
         # raise NotImplementedError
 
     beta = kl_anneal.get_beta("cyclical", epoch)
+
+    # ==========
+    # save epoch data
+    epoch_plotting_data.append(beta)
+    # ==========
+
     loss = mse + kld * beta
     # loss = mse + kld*args.beta
     loss.backward()
