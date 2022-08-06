@@ -82,15 +82,22 @@ def finn_eval_seq(gt, pred):
             print("predict[0].shape")
             print(predict[0].shape)
             print()
+
+            print("origin[0][0].shape")
+            print(origin[0][0].shape)
+            print("predict[0][0].shape")
+            print(predict[0][0].shape)
+            print()
+            
             # origin = gt[t][i]
             # predict = pred[t][i]
             for c in range(origin.shape[0]):
-                res = finn_ssim(origin[c], predict[c]).mean()
+                res = finn_ssim(origin[c][c], predict[c][c]).mean()
                 if math.isnan(res):
                     ssim[i, t] += -1
                 else:
                     ssim[i, t] += res
-                psnr[i, t] += finn_psnr(origin[c], predict[c])
+                psnr[i, t] += finn_psnr(origin[c][c], predict[c][c])
             ssim[i, t] /= origin.shape[0]
             psnr[i, t] /= origin.shape[0]
             mse[i, t] = mse_metric(origin, predict)
@@ -165,8 +172,8 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
         # gen_seq[s].append(x[0])
         x_in = x[0]
 
-        gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
-        gt_seq.append(x[0].data.cpu().numpy()) #change back when plotting
+        # gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
+        # gt_seq.append(x[0].data.cpu().numpy()) #change back when plotting
 
         for i in range(1, args.n_eval):
             if args.last_frame_skip or i < args.n_past:	
