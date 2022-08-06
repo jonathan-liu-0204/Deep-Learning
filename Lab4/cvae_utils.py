@@ -136,104 +136,37 @@ def init_weights(m):
 
 def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
 
-    # get approx posterior sample
-    frame_predictor.hidden = frame_predictor.init_hidden()
-    posterior.hidden = posterior.init_hidden()
-    posterior_gen = []
-    posterior_gen.append(x[0])
-    x_in = x[0]
-    for i in range(1, args.n_eval):
-        h = encoder(x_in)
-        h_target = encoder(x[i])[0].detach()
-        if args.last_frame_skip or i < args.n_past:	
-            h, skip = h
-        else:
-            h, _ = h
-        h = h.detach()
-        _, z_t, _= posterior(h_target) # take the mean
-        if i < args.n_past:
-            frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
-            posterior_gen.append(x[i])
-            x_in = x[i]
-        else:
-            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
-            x_in = decoder([h_pred, skip]).detach()
-            posterior_gen.append(x_in)
-
     nsample = 5
-
-    ssim = np.zeros((args.batch_size, nsample, args.n_future))
-    psnr = np.zeros((args.batch_size, nsample, args.n_future))
-
-    # gen_seq = [[] for i in range(nsample)]
-    # gt_seq = [x[i] for i in range(len(x))]
-
-    all_gen = []
+    gen_seq = [[] for i in range(nsample)]
+    gt_seq = [x[i] for i in range(len(x))]
 
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
-
-        gen_seq = []
-        gt_seq = []
-
         frame_predictor.hidden = frame_predictor.init_hidden()
-        posterior.hidden = posterior.init_hidden()
-
-        # gen_seq[s].append(x[0])
-
+        gen_seq[s].append(x[0])
         x_in = x[0]
-        all_gen.append([])
-        all_gen[s].append(x_in)
 
         for i in range(1, args.n_eval):
-
-            h = encoder(x_in)
-
             if args.last_frame_skip or i < args.n_past:	
-                h, skip = h
-            else:
-                h, _ = h
-
-            h = h.detach()
+                h, skip = h_seq[i-1]
+                h = h.detach()
+            elif i < args.n_past:
+                h, _ = h_seq[i-1]
+                h = h.detach()
 
             if i < args.n_past:
-                h_target = encoder(x[i])[0].detach()
-                _, z_t, _ = posterior(h_target)
+                z_t, _, _ = posterior(h_seq[i][0])
+                frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
+                x_in = x[i]
+                gen_seq[s].append(x_in)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-            if i < args.n_past:
-                frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
-                x_in = x[i]
-                all_gen[s].append(x_in)
-            else:
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
-                gen_seq.append(x_in.data.cpu().numpy())
-                gt_seq.append(x[i].data.cpu().numpy())
-                all_gen[s].append(x_in)
-
-        _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq, gen_seq)
-
-            # if args.last_frame_skip or i < args.n_past:	
-            #     h, skip = h_seq[i-1]
-            #     h = h.detach()
-            # elif i < args.n_past:
-            #     h, _ = h_seq[i-1]
-            #     h = h.detach()
-
-            # if i < args.n_past:
-            #     z_t, _, _ = posterior(h_seq[i][0])
-            #     frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
-            #     x_in = x[i]
-            #     gen_seq[s].append(x_in)
-            # else:
-            #     z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-            #     h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
-            #     x_in = decoder([h, skip]).detach()
-            #     gen_seq[s].append(x_in)
+                gen_seq[s].append(x_in)
     
-    return psnr
+    return gen_seq, gt_seq
 
 
 def is_sequence(arg):
@@ -317,145 +250,38 @@ def save_gif(filename, inputs, duration=0.25):
     imageio.mimsave(filename, images, duration=duration)
 
 def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args, name):
-    
-    # get approx posterior sample
-    frame_predictor.hidden = frame_predictor.init_hidden()
-    posterior.hidden = posterior.init_hidden()
-    posterior_gen = []
-    posterior_gen.append(x[0])
-    x_in = x[0]
-    for i in range(1, args.n_eval):
-        h = encoder(x_in)
-        h_target = encoder(x[i])[0].detach()
-        if args.last_frame_skip or i < args.n_past:	
-            h, skip = h
-        else:
-            h, _ = h
-        h = h.detach()
-        _, z_t, _= posterior(h_target) # take the mean
-        if i < args.n_past:
-            frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
-            posterior_gen.append(x[i])
-            x_in = x[i]
-        else:
-            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
-            x_in = decoder([h_pred, skip]).detach()
-            posterior_gen.append(x_in)
-
     nsample = 5
-
-    ssim = np.zeros((args.batch_size, nsample, args.n_future))
-    psnr = np.zeros((args.batch_size, nsample, args.n_future))
-
-    # gen_seq = [[] for i in range(nsample)]
-    # gt_seq = [x[i] for i in range(len(x))]
-
-    all_gen = []
+    gen_seq = [[] for i in range(nsample)]
+    gt_seq = [x[i] for i in range(len(x))]
+    
+    print("gt_seq len(x): ", len(x)) 
 
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
-
-        gen_seq = []
-        gt_seq = []
-
         frame_predictor.hidden = frame_predictor.init_hidden()
-        posterior.hidden = posterior.init_hidden()
-
-        # gen_seq[s].append(x[0])
-
+        gen_seq[s].append(x[0])
         x_in = x[0]
-        all_gen.append([])
-        all_gen[s].append(x_in)
 
         for i in range(1, args.n_eval):
-
-            h = encoder(x_in)
-
             if args.last_frame_skip or i < args.n_past:	
-                h, skip = h
-            else:
-                h, _ = h
-
-            h = h.detach()
+                h, skip = h_seq[i-1]
+                h = h.detach()
+            elif i < args.n_past:
+                h, _ = h_seq[i-1]
+                h = h.detach()
 
             if i < args.n_past:
-                h_target = encoder(x[i])[0].detach()
-                _, z_t, _ = posterior(h_target)
+                z_t, _, _ = posterior(h_seq[i][0])
+                frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
+                x_in = x[i]
+                gen_seq[s].append(x_in)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-            if i < args.n_past:
-                frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
-                x_in = x[i]
-                all_gen[s].append(x_in)
-            else:
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
-                gen_seq.append(x_in.data.cpu().numpy())
-                gt_seq.append(x[i].data.cpu().numpy())
-                all_gen[s].append(x_in)
+                gen_seq[s].append(x_in)
 
-        _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq, gen_seq)
-    
-    # posterior.hidden = posterior.init_hidden()
-    # posterior_gen = []
-    # posterior_gen.append(x[0])
-    # x_in = x[0]
-    # for i in range(1, args.n_eval):
-    #     h = encoder(x_in)
-    #     h_target = encoder(x[i])[0].detach()
-    #     if args.last_frame_skip or i < args.n_past:	
-    #         h, skip = h
-    #     else:
-    #         h, _ = h
-    #     h = h.detach()
-    #     _, z_t, _= posterior(h_target) # take the mean
-    #     if i < args.n_past:
-    #         frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
-    #         posterior_gen.append(x[i])
-    #         x_in = x[i]
-    #     else:
-    #         h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
-    #         x_in = decoder([h_pred, skip]).detach()
-    #         posterior_gen.append(x_in)
-
-    
-    # nsample = 5
-    # gen_seq = [[] for i in range(nsample)]
-    gt_seq = [x[i] for i in range(len(x))]
-    # ssim = np.zeros((args.batch_size, nsample, args.n_future))
-    # psnr = np.zeros((args.batch_size, nsample, args.n_future))
-    
-    # print("gt_seq len(x): ", len(x)) 
-
-    # h_seq = [encoder(x[i]) for i in range(args.n_past)]
-
-    # for s in range(nsample):
-    #     frame_predictor.hidden = frame_predictor.init_hidden()
-    #     posterior.hidden = posterior.init_hidden()
-    #     gen_seq[s].append(x[0])
-    #     x_in = x[0]
-
-    #     for i in range(1, args.n_eval):
-    #         if args.last_frame_skip or i < args.n_past:	
-    #             h, skip = h_seq[i-1]
-    #             h = h.detach()
-    #         elif i < args.n_past:
-    #             h, _ = h_seq[i-1]
-    #             h = h.detach()
-
-    #         if i < args.n_past:
-    #             z_t, _, _ = posterior(h_seq[i][0])
-    #             frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
-    #             x_in = x[i]
-    #             gen_seq[s].append(x_in)
-    #         else:
-    #             z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-    #             h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
-    #             x_in = decoder([h, skip]).detach()
-    #             gen_seq[s].append(x_in)
-
-    #     _, ssim[:, s, :], psnr[:, s, :] = eval_seq(gt_seq, gen_seq)
 
     directory = args.log_dir + "/gen/epoch" + str(epoch)
     if not os.path.exists(directory):
@@ -467,16 +293,11 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
         to_plot = []
         gifs = [ [] for t in range(args.n_eval) ]
-        text = [ [] for t in range(args.n_eval) ]
-
-        mean_ssim = np.mean(ssim[i], 1)
-        ordered = np.argsort(mean_ssim)
-        rand_sidx = [np.random.randint(nsample) for s in range(3)]
 
         # ground truth sequence
-        # row = [] 
-        # for t in range(args.n_eval):
-        #     row.append(gt_seq[t][i])
+        row = [] 
+        for t in range(args.n_eval):
+            row.append(gt_seq[t][i])
 
         # to_plot.append(row)
 
@@ -485,110 +306,15 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         #     for t in range(args.n_eval):
         #         row.append(gen_seq[s][t][i]) 
         #     to_plot.append(row)
-
         for t in range(args.n_eval):
-
-            if t < args.n_past:
-                color = 'green'
-            else:
-                color = 'red'
-
             row = []
-            row_text = []
             row.append(gt_seq[t][i])
-
-            row_text = ['Ground\ntruth', 'Approx.\nposterior', 'Best PSNR', 'Random\nsample 1', 'Random\nsample 2', 'Random\nsample 3']
-
             for s in range(nsample):
-                # print("input x len: ", len(gen_seq[s][t][i]))
-                # print("input[0] len: ", len(gen_seq[s][t][i][0]))
-                row.append(add_border(gen_seq[s][t][i], color))
-                # row_text.append('Ground\ntruth')
-                # if s == 0:
-                #     text[t].append('Ground\ntruth')
+                row.append(gen_seq[s][t][i])
             gifs[t].append(row)
 
-        # for t in range(args.n_eval):
-        #     # gt 
-        #     gifs[t].append(add_border(x[t], 'green'))
-        #     text[t].append('Ground\ntruth')
-        #     #posterior 
-        #     if t < args.n_past:
-        #         color = 'green'
-        #     else:
-        #         color = 'red'
-        #     gifs[t].append(add_border(posterior_gen[t], color))
-        #     text[t].append('Approx.\nposterior')
-        #     # best 
-        #     if t < args.n_past:
-        #         color = 'green'
-        #     else:
-        #         color = 'red'
-        #     sidx = ordered[-1]
-        #     gifs[t].append(add_border(gen_seq[sidx][t][i], color))
-        #     text[t].append('Best SSIM')
-        #     # random 3
-        #     for s in range(len(rand_sidx)):
-        #         gifs[t].append(add_border(gen_seq[rand_sidx[s]][t][i], color))
-        #         text[t].append('Random\nsample %d' % (s+1))
-
-        fname = directory + "/sample_" + str(i) + ".gif" 
-        save_gif_with_text(fname, gifs, row_text)
     # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
     # save_np_img(fname, to_plot)
 
-        # fname = directory + "/sample_" + str(i) + ".gif"
-        # save_gif(fname, gifs)
-
-def add_border(input, color, pad=1):
-    input = torch.from_numpy(input)
-    w = input.size()[1]
-    nc = input.size()[0]
-    # w = len(input)
-    # nc = len(input)
-    px = Variable(torch.zeros(3, w+2*pad+30, w+2*pad))
-    if color == 'red':
-        px[0] =0.7 
-    elif color == 'green':
-        px[1] = 0.7
-    if nc == 1:
-        for c in range(3):
-            px[c, pad:w+pad, pad:w+pad] = input
-    else:
-        px[:, pad:w+pad, pad:w+pad] = input
-    return px
-
-def save_gif_with_text(filename, inputs, text, duration=0.25):
-    images = []
-    for tensor, text in zip(inputs, text):
-        img = image_tensor([draw_text_tensor(ti, texti) for ti, texti in zip(tensor, text)], padding=0)
-        img = img.cpu()
-        img = img.transpose(0,1).transpose(1,2).clamp(0,1).numpy()
-        images.append(img)
-    imageio.mimsave(filename, images, duration=duration)
-
-def draw_text_tensor(tensor, text):
-    torch.stack(tensor)
-    np_x = tensor.transpose(0, 1).transpose(1, 2).data.cpu().numpy()
-    pil = Image.fromarray(np.uint8(np_x*255))
-    draw = ImageDraw.Draw(pil)
-    draw.text((4, 64), text, (0,0,0))
-    img = np.asarray(pil)
-    return Variable(torch.Tensor(img / 255.)).transpose(1, 2).transpose(0, 1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        fname = directory + "/sample_" + str(i) + ".gif"
+        save_gif(fname, gifs)
