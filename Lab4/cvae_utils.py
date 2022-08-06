@@ -175,8 +175,8 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
                 frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
                 x_in = x[i]
                 # gen_seq[s].append(x_in) #change back when plotting
-                gen_seq.append(x_in.data.cpu().numpy())
-                gt_seq.append(x[i].data.cpu().numpy())
+                gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
+                gt_seq.append(x[i].data.cpu().numpy()) #change back when plotting
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
