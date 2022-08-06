@@ -385,7 +385,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
         train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
 
-    # plot_pred(validate_seq, validate_cond,  encoder, decoder, frame_predictor, posterior, epoch, args, name)
+    plot_pred(validate_seq, validate_cond,  encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
 
 
