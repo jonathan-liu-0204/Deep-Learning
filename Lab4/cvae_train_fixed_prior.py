@@ -349,12 +349,13 @@ for epoch in range(start_epoch,  start_epoch + niter):
     decoder.eval()
     posterior.eval()
 
-    try:
-        validate_seq, validate_cond = next(validate_iterator)
-    except StopIteration:
-        validate_iterator = iter(validate_loader)
-        validate_seq, validate_cond = next(validate_iterator)
+    # try:
+    #     validate_seq, validate_cond = next(validate_batch_generator)
+    # except StopIteration:
+    #     validate_iterator = iter(validate_loader)
+    #     validate_seq, validate_cond = next(validate_batch_generator)
 
+    validate_seq, validate_cond = next(validate_batch_generator)
     # x = next(validate_batch_generator)
     psnr_list = []
 
