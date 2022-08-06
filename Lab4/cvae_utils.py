@@ -57,12 +57,6 @@ def mse_metric(x1, x2):
 def finn_eval_seq(gt, pred):
     T = len(gt)
     bs = gt[0].shape[0]
-
-    # print("T: ", T)
-    # print("bs: ", bs)
-
-    # print("pred T: ", len(pred))
-    # print("pred bs: ", pred[0].shape[0])
     
     ssim = np.zeros((bs, T))
     psnr = np.zeros((bs, T))
@@ -225,21 +219,6 @@ def image_tensor(inputs, padding=1):
                    (i+1) * y_dim + i * padding].copy_(image)
         return result
 
-
-def save_tensors_image(filename, inputs, padding=1):
-    images = image_tensor(inputs, padding)
-    return save_image(filename, images)
-
-def save_np_img(fname, x):
-    # if x.shape[0] == 1:
-    #     x = np.tile(x, (3, 1, 1))
-
-    img = Image.fromarray(np.uint8(x)).covert('RGB')
-    # img = scipy.misc.toimage(x,
-    #                          high=255*x.max(),
-    #                          channel_axis=0)
-    img.save(fname)
-
 def save_gif(filename, inputs, duration=0.25):
     images = []
     for tensor in inputs:
@@ -282,13 +261,10 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
                 x_in = decoder([h, skip]).detach()
                 gen_seq[s].append(x_in)
 
-
     directory = args.log_dir + "/gen/epoch" + str(epoch)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    
-    # nrow = min(args.batch_size, 1)
     for i in range(args.batch_size):
 
         to_plot = []
@@ -299,22 +275,12 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         for t in range(args.n_eval):
             row.append(gt_seq[t][i])
 
-        # to_plot.append(row)
-
-        # for s in range(nsample):
-        #     row = []
-        #     for t in range(args.n_eval):
-        #         row.append(gen_seq[s][t][i]) 
-        #     to_plot.append(row)
         for t in range(args.n_eval):
             row = []
             row.append(gt_seq[t][i])
             for s in range(nsample):
                 row.append(gen_seq[s][t][i])
             gifs[t].append(row)
-
-    # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
-    # save_np_img(fname, to_plot)
 
         fname = directory + "/sample_" + str(i) + ".gif"
         save_gif(fname, gifs)
