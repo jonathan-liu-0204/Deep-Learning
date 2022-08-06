@@ -422,7 +422,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
     
     # nsample = 5
     # gen_seq = [[] for i in range(nsample)]
-    # gt_seq = [x[i] for i in range(len(x))]
+    gt_seq = [x[i] for i in range(len(x))]
     # ssim = np.zeros((args.batch_size, nsample, args.n_future))
     # psnr = np.zeros((args.batch_size, nsample, args.n_future))
     
