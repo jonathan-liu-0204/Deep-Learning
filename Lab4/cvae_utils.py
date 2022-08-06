@@ -58,11 +58,11 @@ def finn_eval_seq(gt, pred):
     T = len(gt)
     bs = gt[0].shape[0]
 
-    print("T: ", T)
-    print("bs: ", bs)
+    # print("T: ", T)
+    # print("bs: ", bs)
 
-    print("pred T: ", len(pred))
-    print("pred bs: ", pred[0].shape[0])
+    # print("pred T: ", len(pred))
+    # print("pred bs: ", pred[0].shape[0])
     
     ssim = np.zeros((bs, T))
     psnr = np.zeros((bs, T))
