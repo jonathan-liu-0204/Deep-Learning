@@ -124,7 +124,6 @@ elif args.optimizer == 'sgd':
 else:
     raise ValueError('Unknown optimizer: %s' % args.optimizer)
 
-
 # ============================================================
 # Initialize Models
 
@@ -158,12 +157,10 @@ posterior_optimizer = args.optimizer(posterior.parameters(), lr=args.lr, betas=(
 encoder_optimizer = args.optimizer(encoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
 decoder_optimizer = args.optimizer(decoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
 
-
 # ============================================================
 # Loss Functions
 
 mse_criterion = nn.MSELoss()
-
 
 # ============================================================
 # Transfer to GPU
@@ -173,7 +170,6 @@ posterior.to(device)
 encoder.to(device)
 decoder.to(device)
 mse_criterion.to(device)
-
 
 # ============================================================
 # Load a Dataset
@@ -274,14 +270,6 @@ def train(x, cond, epoch):
 
         z_t, mu, logvar = posterior(h_target)
         h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
-
-        
-        # print(h_target.is_cuda)
-        # print(z_t.is_cuda)
-        # print(cond[i-1].is_cuda)
-
-        # cond[i-1] = cond[i-1].to("cuda:0")
-        # print(cond[i-1].is_cuda)
         
         # if use_teacher_forcing:
         #     h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
@@ -376,14 +364,8 @@ for epoch in range(start_epoch,  start_epoch + niter):
     decoder.eval()
     posterior.eval()
 
-    # try:
-    #     validate_seq, validate_cond = next(validate_batch_generator)
-    # except StopIteration:
-    #     validate_iterator = iter(validate_loader)
-    #     validate_seq, validate_cond = next(validate_batch_generator)
-
     validate_seq, validate_cond = next(validate_batch_generator)
-    # x = next(validate_batch_generator)
+
     # psnr_list = []
 
     pred_seq, gt_seq = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
@@ -402,9 +384,9 @@ for epoch in range(start_epoch,  start_epoch + niter):
     #             row.append(pred_seq[s][t][i])
     #         psnr_gen[t].append(row)
 
-# #     _, _, psnr = finn_eval_seq(psnr_gt[args.n_past:], psnr_gen[args.n_past:])
+#     _, _, psnr = finn_eval_seq(psnr_gt[args.n_past:], psnr_gen[args.n_past:])
         
-#     #     psnr_list.append(psnr)
+#     psnr_list.append(psnr)
 
 #     ave_psnr = np.mean(np.concatenate(psnr))
 #     print("ave_psnr: ", ave_psnr)
@@ -419,59 +401,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     plot_pred(validate_seq, validate_cond,  encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
-
-
-
-    # if epoch % 5 == 0:
-    #     psnr_list = []
-
-    #     for i in range(len(validate_data) // args.batch_size):
-    #         try:
-    #             validate_seq, validate_cond = next(validate_iterator)
-    #         except StopIteration:
-    #             validate_iterator = iter(validate_loader)
-    #             validate_seq, validate_cond = next(validate_iterator)
-
-    #         validate_cond = validate_cond.to(device)
-
-    #         modules = {
-    #             'frame_predictor': frame_predictor,
-    #             'posterior': posterior,
-    #             'encoder': encoder,
-    #             'decoder': decoder,
-    #         }
-                
-    #         pred_seq, gt_seq = pred(validate_seq, validate_cond, modules, args, device)
-    #         # print("Shape of validate_seq[args.n_past:] is : "+str(np.shape(validate_seq[args.n_past:])))
-    #         # print("Shape of pred_seq[args.n_past:] is : "+str(np.shape(pred_seq[args.n_past:])))
-    #         _, _, psnr = finn_eval_seq(gt_seq[args.n_past:], pred_seq[args.n_past:])
-    
-    #         psnr_list.append(psnr)
-
-    #     ave_psnr = np.mean(np.concatenate(psnr))
-
-    #     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
-    #         train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
-
-    # if epoch % 5 == 0:
-    #     try:
-    #         validate_seq, validate_cond = next(validate_iterator)
-    #     except StopIteration:
-    #         validate_iterator = iter(validate_loader)
-    #         validate_seq, validate_cond = next(validate_iterator)
-
-    #     validate_cond = validate_cond.to(device)
-
-    #     modules = {
-    #         'frame_predictor': frame_predictor,
-    #         'posterior': posterior,
-    #         'encoder': encoder,
-    #         'decoder': decoder,
-    #     }
-
-    #     plot_pred(validate_seq, validate_cond, modules, epoch, args, device, name)
-
-        # save the model
+    # save the model
     save_path = args.log_dir + "/" + str(epoch) + "_model.pth"
     torch.save({'encoder': encoder,
                 'decoder': decoder,
