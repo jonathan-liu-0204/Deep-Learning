@@ -500,7 +500,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
             row_text = ['Ground\ntruth', 'Approx.\nposterior', 'Best PSNR', 'Random\nsample 1', 'Random\nsample 2', 'Random\nsample 3']
 
             for s in range(nsample):
-                print("input size: ", gen_seq[s][t][i].size())
+                print("input: ", gen_seq[s][t][i])
                 row.append(add_border(gen_seq[s][t][i], color))
                 # row_text.append('Ground\ntruth')
                 # if s == 0:
