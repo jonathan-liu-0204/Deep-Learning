@@ -201,11 +201,11 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
             if i < args.n_past:
-                frame_predictor(torch.cat([h, z_t], 1))
+                frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
                 x_in = x[i]
                 all_gen[s].append(x_in)
             else:
-                h = frame_predictor(torch.cat([h, z_t], 1)).detach()
+                h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
                 gen_seq.append(x_in.data.cpu().numpy())
                 gt_seq.append(x[i].data.cpu().numpy())
