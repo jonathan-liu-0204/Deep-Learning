@@ -69,6 +69,12 @@ def finn_eval_seq(gt, pred):
             origin = gt[t][i].detach().cpu().numpy()
             predict = pred[t][i].detach().cpu().numpy()
 
+            print("origin.shape")
+            print(origin.shape)
+            print("predict.shape")
+            print(predict.shape)
+            print()
+
             print("origin[0].shape")
             print(origin[0].shape)
             print("predict[0].shape")
@@ -143,7 +149,7 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
 
     gen_seq = []
     gt_seq = []
-    
+
     # gen_seq = [[] for i in range(nsample)]
     # gt_seq = [x[i] for i in range(len(x))]
 
