@@ -110,7 +110,7 @@ def finn_ssim(img1, img2, data_range=1., cs_map=False):
     img1 = img1.astype(np.float64)
     img2 = img2.astype(np.float64)
 
-    size = 64
+    size = 11
     sigma = 1.5
     window = fspecial_gauss(size, sigma)
 
@@ -175,6 +175,8 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
                 frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
                 x_in = x[i]
                 # gen_seq[s].append(x_in) #change back when plotting
+                gen_seq.append(x_in.data.cpu().numpy())
+                gt_seq.append(x[i].data.cpu().numpy())
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
