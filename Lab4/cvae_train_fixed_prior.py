@@ -361,7 +361,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     pred_seq, gt_seq = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
-    for i in args.batch_size:
+    for i in range(args.batch_size):
 
         psnr_gen = [ [] for t in range(args.n_eval) ]
         psnr_gt  = [ [] for t in range(args.n_eval) ]
