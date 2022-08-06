@@ -57,6 +57,9 @@ def mse_metric(x1, x2):
 def finn_eval_seq(gt, pred):
     T = len(gt)
     bs = gt[0].shape[0]
+
+    print("T: ", T)
+    print("bs: ", bs)
     
     ssim = np.zeros((bs, T))
     psnr = np.zeros((bs, T))
