@@ -140,8 +140,12 @@ def init_weights(m):
 def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
 
     nsample = 5
-    gen_seq = [[] for i in range(nsample)]
-    gt_seq = [x[i] for i in range(len(x))]
+
+    gen_seq = []
+    gt_seq = []
+    
+    # gen_seq = [[] for i in range(nsample)]
+    # gt_seq = [x[i] for i in range(len(x))]
 
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
@@ -162,12 +166,14 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
                 z_t, _, _ = posterior(h_seq[i][0])
                 frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
                 x_in = x[i]
-                gen_seq[s].append(x_in)
+                # gen_seq[s].append(x_in) #change back when plotting
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
-                gen_seq[s].append(x_in)
+                # gen_seq[s].append(x_in) #change back when plotting
+                gen_seq.append(x_in.data.cpu().numpy())
+                gt_seq.append(x[i].data.cpu().numpy())
     
     return gen_seq, gt_seq
 
