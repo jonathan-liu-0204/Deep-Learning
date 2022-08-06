@@ -69,8 +69,10 @@ def finn_eval_seq(gt, pred):
     mse = np.zeros((bs, T))
     for i in range(bs):
         for t in range(T):
-            origin = gt[t][i].detach().cpu().numpy()
-            predict = pred[t][i].detach().cpu().numpy()
+            # origin = gt[t][i].detach().cpu().numpy()
+            # predict = pred[t][i].detach().cpu().numpy()
+            origin = gt[t][i]
+            predict = pred[t][i]
             for c in range(origin.shape[0]):
                 res = finn_ssim(origin[c], predict[c]).mean()
                 if math.isnan(res):
