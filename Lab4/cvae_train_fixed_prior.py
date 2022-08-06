@@ -378,6 +378,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
         psnr_list.append(psnr)
 
     ave_psnr = np.mean(np.concatenate(psnr_list))
+    print("ave_psnr: ", ave_psnr)
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
         train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
