@@ -248,9 +248,35 @@ def save_gif(filename, inputs, duration=0.25):
     imageio.mimsave(filename, images, duration=duration)
 
 def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args, name):
+    
+    posterior.hidden = posterior.init_hidden()
+    posterior_gen = []
+    posterior_gen.append(x[0])
+    x_in = x[0]
+    for i in range(1, args.n_eval):
+        h = encoder(x_in)
+        h_target = encoder(x[i])[0].detach()
+        if args.last_frame_skip or i < args.n_past:	
+            h, skip = h
+        else:
+            h, _ = h
+        h = h.detach()
+        _, z_t, _= posterior(h_target) # take the mean
+        if i < args.n_past:
+            frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
+            posterior_gen.append(x[i])
+            x_in = x[i]
+        else:
+            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
+            x_in = decoder([h_pred, skip]).detach()
+            posterior_gen.append(x_in)
+
+    
     nsample = 5
     gen_seq = [[] for i in range(nsample)]
     gt_seq = [x[i] for i in range(len(x))]
+    ssim = np.zeros((args.batch_size, nsample, args.n_future))
+    psnr = np.zeros((args.batch_size, nsample, args.n_future))
     
     print("gt_seq len(x): ", len(x)) 
 
@@ -258,6 +284,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
+        posterior.hidden = posterior.init_hidden()
         gen_seq[s].append(x[0])
         x_in = x[0]
 
@@ -280,6 +307,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
                 x_in = decoder([h, skip]).detach()
                 gen_seq[s].append(x_in)
 
+        _, ssim[:, s, :], psnr[:, s, :] = eval_seq(gt_seq, gen_seq)
 
     directory = args.log_dir + "/gen/epoch" + str(epoch)
     if not os.path.exists(directory):
@@ -291,11 +319,16 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
         to_plot = []
         gifs = [ [] for t in range(args.n_eval) ]
+        text = [ [] for t in range(args.n_eval) ]
+
+        mean_ssim = np.mean(ssim[i], 1)
+        ordered = np.argsort(mean_ssim)
+        rand_sidx = [np.random.randint(nsample) for s in range(3)]
 
         # ground truth sequence
-        row = [] 
-        for t in range(args.n_eval):
-            row.append(gt_seq[t][i])
+        # row = [] 
+        # for t in range(args.n_eval):
+        #     row.append(gt_seq[t][i])
 
         # to_plot.append(row)
 
@@ -304,18 +337,77 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         #     for t in range(args.n_eval):
         #         row.append(gen_seq[s][t][i]) 
         #     to_plot.append(row)
-        for t in range(args.n_eval):
-            row = []
-            row.append(gt_seq[t][i])
-            for s in range(nsample):
-                row.append(gen_seq[s][t][i])
-            gifs[t].append(row)
 
+        # for t in range(args.n_eval):
+        #     row = []
+        #     row.append(gt_seq[t][i])
+        #     for s in range(nsample):
+        #         row.append(gen_seq[s][t][i])
+        #     gifs[t].append(row)
+
+        for t in range(args.n_eval):
+            # gt 
+            gifs[t].append(add_border(x[t][i], 'green'))
+            text[t].append('Ground\ntruth')
+            #posterior 
+            if t < args.n_past:
+                color = 'green'
+            else:
+                color = 'red'
+            gifs[t].append(add_border(posterior_gen[t][i], color))
+            text[t].append('Approx.\nposterior')
+            # best 
+            if t < args.n_past:
+                color = 'green'
+            else:
+                color = 'red'
+            sidx = ordered[-1]
+            gifs[t].append(add_border(gen_seq[sidx][t][i], color))
+            text[t].append('Best SSIM')
+            # random 3
+            for s in range(len(rand_sidx)):
+                gifs[t].append(add_border(gen_seq[rand_sidx[s]][t][i], color))
+                text[t].append('Random\nsample %d' % (s+1))
+
+        fname = directory + "/sample_" + str(i) + ".gif" 
+        save_gif_with_text(fname, gifs, text)
     # fname = '%s/plot/sample_%d.png' % (args.log_dir, epoch) 
     # save_np_img(fname, to_plot)
 
-        fname = directory + "/sample_" + str(i) + ".gif"
-        save_gif(fname, gifs)
+        # fname = directory + "/sample_" + str(i) + ".gif"
+        # save_gif(fname, gifs)
+
+def add_border(x, color, pad=1):
+    w = x.size()[1]
+    nc = x.size()[0]
+    px = Variable(torch.zeros(3, w+2*pad+30, w+2*pad))
+    if color == 'red':
+        px[0] =0.7 
+    elif color == 'green':
+        px[1] = 0.7
+    if nc == 1:
+        for c in range(3):
+            px[c, pad:w+pad, pad:w+pad] = x
+    else:
+        px[:, pad:w+pad, pad:w+pad] = x
+    return px
+
+def save_gif_with_text(filename, inputs, text, duration=0.25):
+    images = []
+    for tensor, text in zip(inputs, text):
+        img = image_tensor([draw_text_tensor(ti, texti) for ti, texti in zip(tensor, text)], padding=0)
+        img = img.cpu()
+        img = img.transpose(0,1).transpose(1,2).clamp(0,1).numpy()
+        images.append(img)
+    imageio.mimsave(filename, images, duration=duration)
+
+def draw_text_tensor(tensor, text):
+    np_x = tensor.transpose(0, 1).transpose(1, 2).data.cpu().numpy()
+    pil = Image.fromarray(np.uint8(np_x*255))
+    draw = ImageDraw.Draw(pil)
+    draw.text((4, 64), text, (0,0,0))
+    img = np.asarray(pil)
+    return Variable(torch.Tensor(img / 255.)).transpose(1, 2).transpose(0, 1)
 
 
 

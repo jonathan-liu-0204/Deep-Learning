@@ -376,8 +376,9 @@ for epoch in range(start_epoch,  start_epoch + niter):
         _, _, psnr = finn_eval_seq(psnr_gt[args.n_past:], psnr_gen[args.n_past:])
         
         psnr_list.append(psnr)
+        print(psnr_list)
 
-    ave_psnr = np.mean(np.concatenate(psnr_list))
+    ave_psnr = np.mean(psnr_list)
     print("ave_psnr: ", ave_psnr)
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
