@@ -357,32 +357,29 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     validate_seq, validate_cond = next(validate_batch_generator)
     # x = next(validate_batch_generator)
-    psnr_list = []
+    # psnr_list = []
 
-    pred_seq, gt_seq = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
+    # pred_seq, gt_seq = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
-    for i in range(args.batch_size):
+    psnr = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
-        psnr_gen = [ [] for t in range(args.n_eval) ]
-        psnr_gt  = [ [] for t in range(args.n_eval) ]
+    # for i in range(args.batch_size):
 
-        for t in range(args.n_eval):
-            row = []
-            psnr_gt.append(gt_seq[t][i])
-            for s in range(5): # nsample = 5
-                row.append(pred_seq[s][t][i])
-            psnr_gen[t].append(row)
+    #     psnr_gen = [ [] for t in range(args.n_eval) ]
+    #     psnr_gt  = [ [] for t in range(args.n_eval) ]
 
-        _, _, psnr = finn_eval_seq(psnr_gt[args.n_past:], psnr_gen[args.n_past:])
+    #     for t in range(args.n_eval):
+    #         row = []
+    #         psnr_gt.append(gt_seq[t][i])
+    #         for s in range(5): # nsample = 5
+    #             row.append(pred_seq[s][t][i])
+    #         psnr_gen[t].append(row)
+
+    #     _, _, psnr = finn_eval_seq(psnr_gt[args.n_past:], psnr_gen[args.n_past:])
         
-        psnr_list.append(psnr)
+    #     psnr_list.append(psnr)
 
-        print("psnr_gen: ", psnr_gen)
-        print("psnr_gt: ", psnr_gt)
-        print(psnr)
-        print(psnr_list)
-
-    ave_psnr = np.mean(psnr_list)
+    ave_psnr = np.mean(np.concatenate(psnr))
     print("ave_psnr: ", ave_psnr)
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:

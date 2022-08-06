@@ -56,7 +56,7 @@ def mse_metric(x1, x2):
 # ssim function used in Babaeizadeh et al. (2017), Fin et al. (2016), etc.
 def finn_eval_seq(gt, pred):
     T = len(gt)
-    bs = len(gt[0])
+    bs = gt[0].shape[0]
 
     # print("T: ", T)
     # print("bs: ", bs)
@@ -134,37 +134,104 @@ def init_weights(m):
 
 def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
 
+    # get approx posterior sample
+    frame_predictor.hidden = frame_predictor.init_hidden()
+    posterior.hidden = posterior.init_hidden()
+    posterior_gen = []
+    posterior_gen.append(x[0])
+    x_in = x[0]
+    for i in range(1, args.n_eval):
+        h = encoder(x_in)
+        h_target = encoder(x[i])[0].detach()
+        if args.last_frame_skip or i < args.n_past:	
+            h, skip = h
+        else:
+            h, _ = h
+        h = h.detach()
+        _, z_t, _= posterior(h_target) # take the mean
+        if i < args.n_past:
+            frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
+            posterior_gen.append(x[i])
+            x_in = x[i]
+        else:
+            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
+            x_in = decoder([h_pred, skip]).detach()
+            posterior_gen.append(x_in)
+
     nsample = 5
-    gen_seq = [[] for i in range(nsample)]
-    gt_seq = [x[i] for i in range(len(x))]
+
+    ssim = np.zeros((args.batch_size, nsample, args.n_future))
+    psnr = np.zeros((args.batch_size, nsample, args.n_future))
+
+    # gen_seq = [[] for i in range(nsample)]
+    # gt_seq = [x[i] for i in range(len(x))]
+
+    all_gen = []
 
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
+
+        gen_seq = []
+        gt_seq = []
+
         frame_predictor.hidden = frame_predictor.init_hidden()
-        gen_seq[s].append(x[0])
+        posterior.hidden = posterior.init_hidden()
+
+        # gen_seq[s].append(x[0])
+
         x_in = x[0]
+        all_gen.append([])
+        all_gen[s].append(x_in)
 
         for i in range(1, args.n_eval):
+
+            h = encoder(x_in)
+
             if args.last_frame_skip or i < args.n_past:	
-                h, skip = h_seq[i-1]
-                h = h.detach()
-            elif i < args.n_past:
-                h, _ = h_seq[i-1]
-                h = h.detach()
+                h, skip = h
+            else:
+                h, _ = h
+
+            h = h.detach()
 
             if i < args.n_past:
-                z_t, _, _ = posterior(h_seq[i][0])
-                frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
-                x_in = x[i]
-                gen_seq[s].append(x_in)
+                h_target = encoder(x[i])[0].detach()
+                _, z_t, _ = posterior(h_target)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-                h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
+            if i < args.n_past:
+                frame_predictor(torch.cat([h, z_t], 1))
+                x_in = x[i]
+                all_gen[s].append(x_in)
+            else:
+                h = frame_predictor(torch.cat([h, z_t], 1)).detach()
                 x_in = decoder([h, skip]).detach()
-                gen_seq[s].append(x_in)
+                gen_seq.append(x_in.data.cpu().numpy())
+                gt_seq.append(x[i].data.cpu().numpy())
+                all_gen[s].append(x_in)
+
+        _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq, gen_seq)
+
+            # if args.last_frame_skip or i < args.n_past:	
+            #     h, skip = h_seq[i-1]
+            #     h = h.detach()
+            # elif i < args.n_past:
+            #     h, _ = h_seq[i-1]
+            #     h = h.detach()
+
+            # if i < args.n_past:
+            #     z_t, _, _ = posterior(h_seq[i][0])
+            #     frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
+            #     x_in = x[i]
+            #     gen_seq[s].append(x_in)
+            # else:
+            #     z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
+            #     h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
+            #     x_in = decoder([h, skip]).detach()
+            #     gen_seq[s].append(x_in)
     
-    return gen_seq, gt_seq
+    return psnr
 
 
 def is_sequence(arg):
