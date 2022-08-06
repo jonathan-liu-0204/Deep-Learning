@@ -65,6 +65,12 @@ def finn_eval_seq(gt, pred):
         for t in range(T):
             origin = gt[t][i].detach().cpu().numpy()
             predict = pred[t][i].detach().cpu().numpy()
+
+            print("origin.shape")
+            print(origin.shape)
+            print("predict.shape")
+            print(predict.shape)
+            print()
             # origin = gt[t][i]
             # predict = pred[t][i]
             for c in range(origin.shape[0]):
