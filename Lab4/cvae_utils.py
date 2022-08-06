@@ -114,6 +114,9 @@ def finn_ssim(img1, img2, data_range=1., cs_map=False):
     sigma = 1.5
     window = fspecial_gauss(size, sigma)
 
+    print("window.shape")
+    print(window.shape)
+
     K1 = 0.01
     K2 = 0.03
 
