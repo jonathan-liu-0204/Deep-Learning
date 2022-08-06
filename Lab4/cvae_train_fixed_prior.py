@@ -284,10 +284,10 @@ def train(x, cond, epoch):
 
     beta = kl_anneal.get_beta("cyclical", epoch)
 
-    # ==========
-    # save epoch data
-    epoch_plotting_data.append(beta)
-    # ==========
+    # # ==========
+    # # save epoch data
+    # epoch_plotting_data.append(beta)
+    # # ==========
 
     loss = mse + kld * beta
     # loss = mse + kld*args.beta
@@ -355,7 +355,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     
     # ==========
     # save epoch data
-    epoch_plotting_data.append(epoch_loss  / args.epoch_size)
+    epoch_plotting_data.append(float(epoch_loss  / args.epoch_size))
     # ==========
 
 
@@ -384,20 +384,34 @@ for epoch in range(start_epoch,  start_epoch + niter):
     #             row.append(pred_seq[s][t][i])
     #         psnr_gen[t].append(row)
 
-#     _, _, psnr = finn_eval_seq(psnr_gt[args.n_past:], psnr_gen[args.n_past:])
+    psnr_list = []
+
+    for i in range(args.batch_size):
+        for t in range(args.n_past, args.n_eval):
+            for s in range(5): # nsample = 5
+                _, _, psnr = finn_eval_seq(gt_seq[s][t][i], pred_seq[s][t][i])
+                psnr_list.append(psnr)
+
+    print("psnr_list")
+    print(psnr_list)
+    print()
+
+    ave_psnr = np.mean(np.concatenate(psnr))
+    print("ave_psnr: ", ave_psnr)
+
         
 #     psnr_list.append(psnr)
 
 #     ave_psnr = np.mean(np.concatenate(psnr))
 #     print("ave_psnr: ", ave_psnr)
 
-#     # ==========
-#     # save epoch data
-#     epoch_plotting_data.append(ave_psnr)
-#     # ==========
+    # ==========
+    # save epoch data
+    epoch_plotting_data.append(ave_psnr)
+    # ==========
 
-#     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
-#         train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
+    with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
+        train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
 
     plot_pred(validate_seq, validate_cond,  encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
