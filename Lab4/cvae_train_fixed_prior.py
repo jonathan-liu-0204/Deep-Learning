@@ -17,6 +17,8 @@ from cvae_models.cvae_lstm import gaussian_lstm, lstm
 from cvae_models.cvae_vgg_64 import vgg_decoder, vgg_encoder
 from cvae_utils import init_weights, kl_criterion, pred, finn_eval_seq, plot_pred, normalize_data
 
+import csv
+
 torch.backends.cudnn.benchmark = True
 
 def parse_args():
@@ -311,9 +313,17 @@ def train(x, cond, epoch):
 
 progress = tqdm(total = args.niter)
 best_val_psnr = 0
-# tfr_value = args.tfr
+tfr_value = args.tfr
 
 for epoch in range(start_epoch,  start_epoch + niter):
+
+    # ==========
+    # save epoch data
+    epoch_plotting_data = []
+    epoch_plotting_data.append(epoch)
+    # ==========
+
+
     progress.update(1)
 
     frame_predictor.train()
@@ -334,15 +344,26 @@ for epoch in range(start_epoch,  start_epoch + niter):
         epoch_mse += mse
         epoch_kld += kld
 
-    # if epoch >= args.tfr_start_decay_epoch:
-    #     tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
+    if epoch >= args.tfr_start_decay_epoch:
+        tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
 
-    #     if tfr_value < args.tfr_lower_bound:
-    #         tfr_value = args.tfr_lower_bound
+        if tfr_value < args.tfr_lower_bound:
+            tfr_value = args.tfr_lower_bound
+
+    # ==========
+    # save epoch data
+    epoch_plotting_data.append(tfr_value)
+    # ==========
     
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
         train_record.write(('[epoch: %02d] loss: %.8f | mse loss: %.8f | kld loss: %.8f\n' % (epoch, epoch_loss  / args.epoch_size, epoch_mse / args.epoch_size, epoch_kld / args.epoch_size)))
+    
+    # ==========
+    # save epoch data
+    epoch_plotting_data.append(epoch_loss  / args.epoch_size)
+    # ==========
+
 
     frame_predictor.eval()
     encoder.eval()
@@ -381,6 +402,11 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     ave_psnr = np.mean(np.concatenate(psnr))
     print("ave_psnr: ", ave_psnr)
+
+    # ==========
+    # save epoch data
+    epoch_plotting_data.append(ave_psnr)
+    # ==========
 
     with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
         train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
@@ -451,3 +477,9 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     if epoch % 10 == 0:
         print('log dir: %s' % args.log_dir)
+
+    with open('epoch_curve_plotting_data.csv', 'w') as f:
+      
+        # using csv.writer method from CSV package
+        write = csv.writer(f)
+        write.writerow(epoch_plotting_data)

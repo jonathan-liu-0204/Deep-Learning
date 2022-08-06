@@ -535,9 +535,9 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         # fname = directory + "/sample_" + str(i) + ".gif"
         # save_gif(fname, gifs)
 
-def add_border(x, color, pad=1):
-    w = x.size()[1]
-    nc = x.size()[0]
+def add_border(input, color, pad=1):
+    w = input.size()[1]
+    nc = input.size()[0]
     px = Variable(torch.zeros(3, w+2*pad+30, w+2*pad))
     if color == 'red':
         px[0] =0.7 
@@ -545,9 +545,9 @@ def add_border(x, color, pad=1):
         px[1] = 0.7
     if nc == 1:
         for c in range(3):
-            px[c, pad:w+pad, pad:w+pad] = x
+            px[c, pad:w+pad, pad:w+pad] = input
     else:
-        px[:, pad:w+pad, pad:w+pad] = x
+        px[:, pad:w+pad, pad:w+pad] = input
     return px
 
 def save_gif_with_text(filename, inputs, text, duration=0.25):
