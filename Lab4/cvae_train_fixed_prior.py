@@ -355,7 +355,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     
     # ==========
     # save epoch data
-    epoch_plotting_data.append(float(epoch_loss  / args.epoch_size))
+    epoch_plotting_data.append(epoch_loss  / args.epoch_size)
     # ==========
 
 
