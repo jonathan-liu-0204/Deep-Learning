@@ -373,7 +373,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
                 row.append(pred_seq[s][t][i])
             psnr_gen[t].append(row)
 
-        _, _, psnr = finn_eval_seq(gt_seq[args.n_past:], pred_seq[args.n_past:])
+        _, _, psnr = finn_eval_seq(psnr_gt[args.n_past:], psnr_gen[args.n_past:])
         
         psnr_list.append(psnr)
 
