@@ -428,7 +428,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     if epoch % 10 == 0:
         print('log dir: %s' % args.log_dir)
 
-    with open('epoch_curve_plotting_data.csv', 'w') as f:
+    with open('epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
       
         # using csv.writer method from CSV package
         write = csv.writer(f)
