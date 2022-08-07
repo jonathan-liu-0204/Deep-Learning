@@ -33,8 +33,8 @@ def parse_args():
     parser.add_argument('--niter', type=int, default=300, help='number of epochs to train for')
     parser.add_argument('--epoch_size', type=int, default=600, help='epoch size')
     parser.add_argument('--tfr', type=float, default=1.0, help='teacher forcing ratio (0 ~ 1)')
-    parser.add_argument('--tfr_start_decay_epoch', type=int, default=0, help='The epoch that teacher forcing ratio become decreasing')
-    parser.add_argument('--tfr_decay_step', type=float, default=0, help='The decay step size of teacher forcing ratio (0 ~ 1)')
+    parser.add_argument('--tfr_start_decay_epoch', type=int, default=30, help='The epoch that teacher forcing ratio become decreasing')
+    parser.add_argument('--tfr_decay_step', type=float, default=0.004 help='The decay step size of teacher forcing ratio (0 ~ 1)')
     parser.add_argument('--tfr_lower_bound', type=float, default=0, help='The lower bound of teacher forcing ratio for scheduling teacher forcing ratio (0 ~ 1)')
     parser.add_argument('--kl_anneal_cyclical', default=False, action='store_true', help='use cyclical mode')
     parser.add_argument('--kl_anneal_ratio', type=float, default=0.5, help='The decay ratio of kl annealing')
@@ -390,15 +390,16 @@ for epoch in range(start_epoch,  start_epoch + niter):
     epoch_plotting_data.append(ave_psnr)
     # ==========
 
-    with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
-        train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
-
     with open('./{}/epoch_curve_plotting_data.csv'.format(args.log_dir), 'a+', newline ='') as f:
         # using csv.writer method from CSV package
         write = csv.writer(f)
         write.writerow(epoch_plotting_data)
 
     if epoch % 5 == 0:
+
+        with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
+            train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
+
         plot_pred(validate_seq, validate_cond,  encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
         # save the model
