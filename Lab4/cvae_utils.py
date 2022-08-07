@@ -71,23 +71,23 @@ def finn_eval_seq(gt, pred):
             # origin = gt[t][i].detach().cpu().numpy()
             # predict = pred[t][i].detach().cpu().numpy()
 
-            print("origin.shape")
-            print(origin.shape)
-            print("predict.shape")
-            print(predict.shape)
-            print()
+            # print("origin.shape")
+            # print(origin.shape)
+            # print("predict.shape")
+            # print(predict.shape)
+            # print()
 
-            print("origin[0].shape")
-            print(origin[0].shape)
-            print("predict[0].shape")
-            print(predict[0].shape)
-            print()
+            # print("origin[0].shape")
+            # print(origin[0].shape)
+            # print("predict[0].shape")
+            # print(predict[0].shape)
+            # print()
 
-            print("origin[0][0].shape")
-            print(origin[0][0].shape)
-            print("predict[0][0].shape")
-            print(predict[0][0].shape)
-            print()
+            # print("origin[0][0].shape")
+            # print(origin[0][0].shape)
+            # print("predict[0][0].shape")
+            # print(predict[0][0].shape)
+            # print()
             
             # origin = gt[t][i]
             # predict = pred[t][i]
@@ -123,8 +123,8 @@ def finn_ssim(img1, img2, data_range=1., cs_map=False):
     sigma = 1.5
     window = fspecial_gauss(size, sigma)
 
-    print("window.shape")
-    print(window.shape)
+    # print("window.shape")
+    # print(window.shape)
 
     K1 = 0.01
     K2 = 0.03
@@ -166,9 +166,6 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
 
     ssim = np.zeros((args.batch_size, nsample, args.n_future))
     psnr = np.zeros((args.batch_size, nsample, args.n_future))
-
-    # gen_seq = [[] for i in range(nsample)]
-    # gt_seq = [x[i] for i in range(len(x))]
 
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
@@ -268,6 +265,14 @@ def image_tensor(inputs, padding=1):
                    (i+1) * y_dim + i * padding].copy_(image)
         return result
 
+def draw_text_tensor(tensor, text):
+    np_x = tensor.transpose(0, 1).transpose(1, 2).data.cpu().numpy()
+    pil = Image.fromarray(np.uint8(np_x*255))
+    draw = ImageDraw.Draw(pil)
+    draw.text((4, 64), text, (0,0,0))
+    img = np.asarray(pil)
+    return Variable(torch.Tensor(img / 255.)).transpose(1, 2).transpose(0, 1)
+
 def save_gif(filename, inputs, duration=0.25):
     images = []
     for tensor in inputs:
@@ -277,10 +282,54 @@ def save_gif(filename, inputs, duration=0.25):
         images.append(img.numpy())
     imageio.mimsave(filename, images, duration=duration)
 
+def save_gif_with_text(filename, inputs, text, duration=0.25):
+    images = []
+    for tensor, text in zip(inputs, text):
+        img = image_tensor([draw_text_tensor(ti, texti) for ti, texti in zip(tensor, text)], padding=0)
+        img = img.cpu()
+        img = img.transpose(0,1).transpose(1,2).clamp(0,1).numpy()
+        images.append(img)
+    imageio.mimsave(filename, images, duration=duration)
+
 def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args, name):
+    
+    # =====
+    # approx posterior
+
+    frame_predictor.hidden = frame_predictor.init_hidden()
+    posterior.hidden = posterior.init_hidden()
+    posterior_gen = []
+    posterior_gen.append(x[0])
+    x_in = x[0]
+
+    for i in range(1, args.n_eval):
+        h = encoder(x_in)
+        h_target = encoder(x[i])[0].detach()
+        if args.last_frame_skip or i < args.n_past:	
+            h, skip = h
+        else:
+            h, _ = h
+        h = h.detach()
+        _, z_t, _= posterior(h_target) # take the mean
+        if i < args.n_past:
+            frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
+            posterior_gen.append(x[i])
+            x_in = x[i]
+        else:
+            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
+            x_in = decoder([h_pred, skip]).detach()
+            posterior_gen.append(x_in)
+    
+    # =====
+    # normal
+    
     nsample = 5
-    gen_seq = [[] for i in range(nsample)]
-    gt_seq = [x[i] for i in range(len(x))]
+    
+    gen_seq_draw = [[] for i in range(nsample)]
+    gt_seq_draw = [x[i] for i in range(len(x))]
+
+    ssim = np.zeros((args.batch_size, nsample, args.n_future))
+    psnr = np.zeros((args.batch_size, nsample, args.n_future))
     
     print("gt_seq len(x): ", len(x)) 
 
@@ -288,7 +337,12 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
-        gen_seq[s].append(x[0])
+        posterior.hidden = posterior.init_hidden()
+        
+        gen_seq_for_psnr = []
+        gt_seq_for_psnr = []
+
+        gen_seq_draw[s].append(x[0])
         x_in = x[0]
 
         for i in range(1, args.n_eval):
@@ -303,33 +357,92 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
                 z_t, _, _ = posterior(h_seq[i][0])
                 frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
                 x_in = x[i]
-                gen_seq[s].append(x_in)
+                gen_seq_draw[s].append(x_in)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
-                gen_seq[s].append(x_in)
+
+                gen_seq_for_psnr.append(x_in.data.cpu().numpy())
+                gt_seq_for_psnr.append(x[i].data.cpu().numpy())
+
+                gen_seq_draw[s].append(x_in)
+        
+        _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq_for_psnr, gen_seq_for_psnr)
 
     directory = args.log_dir + "/gen/epoch" + str(epoch)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+
     for i in range(args.batch_size):
 
-        to_plot = []
         gifs = [ [] for t in range(args.n_eval) ]
+        text = [ [] for t in range(args.n_eval) ]
 
-        # ground truth sequence
-        row = [] 
-        for t in range(args.n_eval):
-            row.append(gt_seq[t][i])
+        mean_psnr = np.mean(psnr[i], 1)
+        ordered = np.argsort(mean_psnr)
+        rand_sidx = [np.random.randint(nsample) for s in range(3)]
 
         for t in range(args.n_eval):
+
             row = []
-            row.append(gt_seq[t][i])
-            for s in range(nsample):
-                row.append(gen_seq[s][t][i])
+
+            #Ground truth
+            row.append(add_border(gt_seq_draw[t][i], 'green'))
+            text[t].append('Ground\ntruth')
+            
+            if t < args.n_past:
+                color = 'green'
+            else:
+                color = 'red'
+
+            #Posterior
+            row.append(add_border(posterior_gen[t][i], color))
+            text[t].append('Approx.\nposterior')
+
+            #Best PSNR
+            sidx = ordered[-1]
+            gifs[t].append(add_border(gen_seq_draw[sidx][t][i], color))
+            text[t].append('Best SSIM')
+
+            #Random 1~3
+            for s in range(len(rand_sidx)):
+                gifs[t].append(add_border(gen_seq_draw[rand_sidx[s]][t][i], color))
+                text[t].append('Random\nsample %d' % (s+1))
+
             gifs[t].append(row)
 
         fname = directory + "/sample_" + str(i) + ".gif"
-        save_gif(fname, gifs)
+        save_gif_with_text(fname, gifs, text)
+
+    # roiginal plottinh
+    # for i in range(args.batch_size):
+
+    #     gifs = [ [] for t in range(args.n_eval) ]
+
+    #     for t in range(args.n_eval):
+    #         row = []
+    #         row.append(gt_seq_draw[t][i])
+    #         for s in range(nsample):
+    #             row.append(gen_seq_draw[s][t][i])
+    #         gifs[t].append(row)
+
+    #     fname = directory + "/sample_" + str(i) + ".gif"
+    #     save_gif(fname, gifs)
+
+
+def add_border(x, color, pad=1):
+    w = x.size()[1]
+    nc = x.size()[0]
+    px = Variable(torch.zeros(3, w+2*pad+30, w+2*pad))
+    if color == 'red':
+        px[0] =0.7 
+    elif color == 'green':
+        px[1] = 0.7
+    if nc == 1:
+        for c in range(3):
+            px[c, pad:w+pad, pad:w+pad] = x
+    else:
+        px[:, pad:w+pad, pad:w+pad] = x
+    return px
