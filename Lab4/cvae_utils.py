@@ -400,10 +400,10 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
         for t in range(args.n_eval):
 
-            row = []
+            # row = []
 
             #Ground truth
-            row.append(add_border(gt_seq_draw[t][i], 'green'))
+            gifs[t].append(add_border(gt_seq_draw[t][i], 'green'))
             text[t].append('Ground\ntruth')
             
             if t < args.n_past:
@@ -412,13 +412,13 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
                 color = 'red'
 
             #Posterior
-            row.append(add_border(posterior_gen[t][i], color))
+            gifs[t].append(add_border(posterior_gen[t][i], color))
             text[t].append('Approx.\nposterior')
 
             #Best PSNR
             sidx = ordered[-1]
             gifs[t].append(add_border(all_gen[sidx][t][i], color))
-            text[t].append('Best SSIM')
+            text[t].append('Best PSNR')
 
             #Random 1~3
             for s in range(len(rand_sidx)):
