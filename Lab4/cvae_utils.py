@@ -265,8 +265,15 @@ def image_tensor(inputs, padding=1):
                    (i+1) * y_dim + i * padding].copy_(image)
         return result
 
+# def swapPositions(list, pos1, pos2):
+#     list[pos1], list[pos2] = list[pos2], list[pos1]
+#     return list
+
 def draw_text_tensor(tensor, text):
     np_x = tensor.transpose(0, 1).transpose(1, 2).data.cpu().numpy()
+    # np_x = np.transpose(tensor, (1, 2, 0))
+    # np_x = swapPositions(tensor, 0, 1)
+    # np_x = swapPositions(np_x, 1, 2)
     pil = Image.fromarray(np.uint8(np_x*255))
     draw = ImageDraw.Draw(pil)
     draw.text((4, 64), text, (0,0,0))
@@ -324,6 +331,8 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
     # normal
     
     nsample = 5
+
+    all_gen = []
     
     gen_seq_draw = [[] for i in range(nsample)]
     gt_seq_draw = [x[i] for i in range(len(x))]
@@ -345,6 +354,9 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         gen_seq_draw[s].append(x[0])
         x_in = x[0]
 
+        all_gen.append([])
+        all_gen[s].append(x_in)
+
         for i in range(1, args.n_eval):
             if args.last_frame_skip or i < args.n_past:	
                 h, skip = h_seq[i-1]
@@ -358,6 +370,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
                 frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
                 x_in = x[i]
                 gen_seq_draw[s].append(x_in)
+                all_gen[s].append(x_in)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
@@ -367,6 +380,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
                 gt_seq_for_psnr.append(x[i].data.cpu().numpy())
 
                 gen_seq_draw[s].append(x_in)
+                all_gen[s].append(x_in)
         
         _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq_for_psnr, gen_seq_for_psnr)
 
@@ -403,24 +417,25 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
             #Best PSNR
             sidx = ordered[-1]
-            gifs[t].append(add_border(gen_seq_draw[sidx][t][i], color))
+            gifs[t].append(add_border(all_gen[sidx][t][i], color))
             text[t].append('Best SSIM')
 
             #Random 1~3
             for s in range(len(rand_sidx)):
-                gifs[t].append(add_border(gen_seq_draw[rand_sidx[s]][t][i], color))
+                gifs[t].append(add_border(all_gen[rand_sidx[s]][t][i], color))
                 text[t].append('Random\nsample %d' % (s+1))
+        
+        # np_gifs = np.array(gifs)
 
-            gifs[t].append(row)
+        # print("gifs")
+        # print(gifs)
+        # print()
+        # print("np_gifs")
+        # print(np_gifs)
+        # print()
 
-        np_gifs = np.array(gifs)
-        np_gifs = np_gifs.astype(np.float64)
-        print("np_gifs shape: ", np_gifs.shape)
-
-        # tensor_gifs = torch.tensor([[[element for element in item]] for item in gifs]).cuda()
-        tensor_gifs = torch.from_numpy(np_gifs)
         fname = directory + "/sample_" + str(i) + ".gif"
-        save_gif_with_text(fname, tensor_gifs, text)
+        save_gif_with_text(fname, gifs, text)
 
     # roiginal plottinh
     # for i in range(args.batch_size):
