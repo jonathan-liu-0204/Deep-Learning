@@ -260,7 +260,7 @@ def train(x, cond, epoch, tfr_value):
     h_seq = [encoder(x[i]) for i in range(args.n_past + args.n_future)]   
     
     choices_of_tf = [True, False]
-    weight_of_tf_true = round([100*tfr_value], 0)
+    weight_of_tf_true = round(100*tfr_value, 0)
     weight_of_tf_false = 100 - weight_of_tf_true
     use_teacher_forcing = random.choices(choices_of_tf, weights=[weight_of_tf_true, weight_of_tf_false])
 
