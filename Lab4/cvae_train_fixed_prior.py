@@ -306,7 +306,8 @@ def train(x, cond, epoch, tfr_value):
 headerList = ['Epoch', 'KL Weight', 'TFR', 'Loss', 'PSNR']
 
 with open('./{}/epoch_curve_plotting_data.csv'.format(args.log_dir), 'a+', newline ='') as f:
-        write = csv.writer(headerList)
+    write = csv.writer(f)
+    write = csv.writer(headerList)
 
 # ============================================================
 # Start Training Process
