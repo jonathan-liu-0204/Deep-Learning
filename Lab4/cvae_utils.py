@@ -56,7 +56,7 @@ def mse_metric(x1, x2):
 # ssim function used in Babaeizadeh et al. (2017), Fin et al. (2016), etc.
 def finn_eval_seq(gt, pred):
     T = len(gt)
-    bs = len(gt[0])
+    bs = gt[0].shape[0]
 
     print("T: ", T)
     print("bs: ", bs)
@@ -195,7 +195,7 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
 
             if i < args.n_past:
                 h_target = encoder(x[i])[0].detach()
-                _, z_t, _ = posterior(h_target)
+                z_t, _, _ = posterior(h_target)
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
 
