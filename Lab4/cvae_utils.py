@@ -384,7 +384,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         
         _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq_for_psnr, gen_seq_for_psnr)
 
-    directory = args.log_dir + "/gen/epoch" + str(epoch)
+    directory = args.log_dir + "/gen/epoch_" + str(epoch)
     if not os.path.exists(directory):
         os.makedirs(directory)
 

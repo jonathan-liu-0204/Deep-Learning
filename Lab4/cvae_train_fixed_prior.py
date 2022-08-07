@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
     parser.add_argument('--batch_size', default=12, type=int, help='batch size')
-    parser.add_argument('--log_dir', default='./model_log', help='base directory to save logs')
+    parser.add_argument('--log_dir', default='./LOG', help='base directory to save logs')
     parser.add_argument('--model_dir', default='', help='base directory to save logs')
     parser.add_argument('--data_root', default='./data', help='root directory for data')
     parser.add_argument('--optimizer', default='adam', help='optimizer to train with')
@@ -383,7 +383,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     psnrs = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
     ave_psnr = np.mean(np.concatenate(psnrs))
-    print("ave_psnr: ", ave_psnr)
+    # print("ave_psnr: ", ave_psnr)
 
     # ==========
     # save epoch data
@@ -394,13 +394,13 @@ for epoch in range(start_epoch,  start_epoch + niter):
         # using csv.writer method from CSV package
         write = csv.writer(f)
         write.writerow(epoch_plotting_data)
+    
+    plot_pred(validate_seq, validate_cond,  encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
     if epoch % 5 == 0:
 
         with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
             train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
-
-        plot_pred(validate_seq, validate_cond,  encoder, decoder, frame_predictor, posterior, epoch, args, name)
 
         # save the model
         save_path = args.log_dir + "/" + str(epoch) + "_model.pth"
