@@ -168,7 +168,7 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
     # gen_seq = [[] for i in range(nsample)]
     # gt_seq = [x[i] for i in range(len(x))]
 
-    # h_seq = [encoder(x[i]) for i in range(args.n_past)]
+    h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
@@ -183,31 +183,22 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
         # gt_seq.append(x[0].data.cpu().numpy()) #change back when plotting
 
         for i in range(1, args.n_eval):
-
-            h = encoder(x_in)
-
             if args.last_frame_skip or i < args.n_past:	
-                h, skip = h
+                h, skip = h_seq[i-1]
                 h = h.detach()
             elif i < args.n_past:
-                h, _ = h
+                h, _ = h_seq[i-1]
                 h = h.detach()
 
             if i < args.n_past:
-                h_target = encoder(x[i])[0].detach()
-                z_t, _, _ = posterior(h_target)
-            else:
-                z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
-
-            if i < args.n_past:
-                # z_t, _, _ = posterior(h_seq[i][0])
+                z_t, _, _ = posterior(h_seq[i][0])
                 frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
                 x_in = x[i]
                 # gen_seq[s].append(x_in) #change back when plotting
-                # gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
-                # gt_seq.append(x[i].data.cpu().numpy()) #change back when plotting
+                gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
+                gt_seq.append(x[i].data.cpu().numpy()) #change back when plotting
             else:
-                # z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
+                z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
                 # gen_seq[s].append(x_in) #change back when plotting
