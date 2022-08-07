@@ -162,6 +162,9 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
     gen_seq = []
     gt_seq = []
 
+    ssim = np.zeros((args.batch_size, nsample, args.n_future))
+    psnr = np.zeros((args.batch_size, nsample, args.n_future))
+
     # gen_seq = [[] for i in range(nsample)]
     # gt_seq = [x[i] for i in range(len(x))]
 
@@ -197,8 +200,10 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
                 # gen_seq[s].append(x_in) #change back when plotting
                 gen_seq.append(x_in.data.cpu().numpy())
                 gt_seq.append(x[i].data.cpu().numpy())
+
+        _, ssim[:, s, :], psnr[:, s, :] = finn_eval_seq(gt_seq, gen_seq)
     
-    return gen_seq, gt_seq
+    return psnr
 
 
 def is_sequence(arg):

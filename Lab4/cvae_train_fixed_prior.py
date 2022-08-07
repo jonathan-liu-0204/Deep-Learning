@@ -368,25 +368,25 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     # psnr_list = []
 
-    pred_seq, gt_seq = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
+    psnrs = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
-    print("pred_seq shape")
-    print(len(pred_seq))
-    print("gt_seq shape")
-    print(len(gt_seq))
-    print()
+    # print("pred_seq shape")
+    # print(len(pred_seq))
+    # print("gt_seq shape")
+    # print(len(gt_seq))
+    # print()
 
-    print("pred_seq[0] shape")
-    print(len(pred_seq[0]))
-    print("gt_seq[0] shape")
-    print(len(gt_seq[0]))
-    print()
+    # print("pred_seq[0] shape")
+    # print(len(pred_seq[0]))
+    # print("gt_seq[0] shape")
+    # print(len(gt_seq[0]))
+    # print()
 
-    print("pred_seq[0][0] shape")
-    print(len(pred_seq[0][0]))
-    print("gt_seq[0][0] shape")
-    print(len(gt_seq[0][0]))
-    print()
+    # print("pred_seq[0][0] shape")
+    # print(len(pred_seq[0][0]))
+    # print("gt_seq[0][0] shape")
+    # print(len(gt_seq[0][0]))
+    # print()
 
     # psnr = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
@@ -402,19 +402,19 @@ for epoch in range(start_epoch,  start_epoch + niter):
     #             row.append(pred_seq[s][t][i])
     #         psnr_gen[t].append(row)
 
-    psnr_list = []
+    # psnr_list = []
 
     # for i in range(args.batch_size):
-        # for t in range(args.n_past, args.n_eval):
-    for s in range(5): # nsample = 5
-        _, _, psnr = finn_eval_seq(gt_seq[:][s][:], pred_seq[:][s][:])
-        psnr_list.append(psnr)
+    #     # for t in range(args.n_past, args.n_eval):
+    # for s in range(5): # nsample = 5
+    #     _, _, psnr = finn_eval_seq(gt_seq[:][s][:], pred_seq[:][s][:])
+    #     psnr_list.append(psnr)
 
-    print("psnr_list")
-    print(psnr_list)
-    print()
+    # print("psnr_list")
+    # print(psnr_list)
+    # print()
 
-    ave_psnr = np.mean(np.concatenate(psnr))
+    ave_psnr = np.mean(np.concatenate(psnrs))
     print("ave_psnr: ", ave_psnr)
 
         
