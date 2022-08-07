@@ -331,7 +331,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
     ssim = np.zeros((args.batch_size, nsample, args.n_future))
     psnr = np.zeros((args.batch_size, nsample, args.n_future))
     
-    print("gt_seq len(x): ", len(x)) 
+    # print("gt_seq len(x): ", len(x)) 
 
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
@@ -413,7 +413,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
             gifs[t].append(row)
 
-        tensor_gifs = torch.tensor([item for item in gifs]).cuda()
+        tensor_gifs = torch.tensor([[[element for element in item]] for item in gifs]).cuda()
         # tensor_gifs = torch.tensor(gifs)
         fname = directory + "/sample_" + str(i) + ".gif"
         save_gif_with_text(fname, tensor_gifs, text)
