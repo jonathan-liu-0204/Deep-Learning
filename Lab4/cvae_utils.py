@@ -414,6 +414,7 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
             gifs[t].append(row)
 
         np_gifs = np.array(gifs)
+        np_gifs = np_gifs.astype(np.float64)
         print("np_gifs shape: ", np_gifs.shape)
 
         # tensor_gifs = torch.tensor([[[element for element in item]] for item in gifs]).cuda()
