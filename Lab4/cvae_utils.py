@@ -417,9 +417,9 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
         print("np_gifs shape: ", np_gifs.shape)
 
         # tensor_gifs = torch.tensor([[[element for element in item]] for item in gifs]).cuda()
-        # tensor_gifs = torch.tensor(gifs)
+        tensor_gifs = torch.tensor(np.stack(gifs))
         fname = directory + "/sample_" + str(i) + ".gif"
-        save_gif_with_text(fname, np_gifs, text)
+        save_gif_with_text(fname, tensor_gifs, text)
 
     # roiginal plottinh
     # for i in range(args.batch_size):
