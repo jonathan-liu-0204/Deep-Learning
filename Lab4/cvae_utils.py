@@ -106,7 +106,9 @@ def finn_eval_seq(gt, pred):
 
 def finn_psnr(x, y, data_range=1.):
     mse = ((x - y)**2).mean()
-    return 20 * math.log10(data_range) - 10 * math.log10(mse)
+    return 10 * np.log(1/mse) / np.log(10)
+    mse = ((x - y)**2).mean()
+    # return 20 * math.log10(data_range) - 10 * math.log10(mse)
 
 def fspecial_gauss(size, sigma):
     x, y = np.mgrid[-size // 2 + 1:size // 2 + 1, -size // 2 + 1:size // 2 + 1]
