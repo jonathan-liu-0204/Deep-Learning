@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
     parser.add_argument('--batch_size', default=12, type=int, help='batch size')
-    parser.add_argument('--log_dir', default='./cvae_logs/fp', help='base directory to save logs')
+    parser.add_argument('--log_dir', default='./model_log', help='base directory to save logs')
     parser.add_argument('--model_dir', default='', help='base directory to save logs')
     parser.add_argument('--data_root', default='./data', help='root directory for data')
     parser.add_argument('--optimizer', default='adam', help='optimizer to train with')
@@ -95,7 +95,7 @@ else:
 
 os.makedirs(args.log_dir, exist_ok=True)
 os.makedirs('%s/gen/' % args.log_dir, exist_ok=True)
-os.makedirs('%s/plots/' % args.log_dir, exist_ok=True)
+# os.makedirs('%s/plots/' % args.log_dir, exist_ok=True)
 
 
 print("Random Seed: ", args.seed)
@@ -239,7 +239,7 @@ kl_anneal = kl_annealing(args)
 # ============================================================
 # Training Function
 
-def train(x, cond, epoch):
+def train(x, cond, epoch, tfr_value):
 
     frame_predictor.zero_grad()
     posterior.zero_grad()
@@ -257,8 +257,12 @@ def train(x, cond, epoch):
     mse = 0
     kld = 0
 
-    h_seq = [encoder(x[i]) for i in range(args.n_past + args.n_future)]    
-    # use_teacher_forcing = True if random.random() < args.tfr else False
+    h_seq = [encoder(x[i]) for i in range(args.n_past + args.n_future)]   
+    
+    choices_of_tf = [True, False]
+    weight_of_tf_true = round([100*tfr_value], 0)
+    weight_of_tf_false = 100 - weight_of_tf_true
+    use_teacher_forcing = random.choices(choices_of_tf, weights=[weight_of_tf_true, weight_of_tf_false])
 
     for i in range(1, args.n_past + args.n_future):
         h_target = h_seq[i][0]
@@ -269,12 +273,12 @@ def train(x, cond, epoch):
             h = h_seq[i-1][0]
 
         z_t, mu, logvar = posterior(h_target)
-        h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
+        # h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
         
-        # if use_teacher_forcing:
-        #     h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
-        # else:
-        #     h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
+        if use_teacher_forcing:
+            h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
+        else:
+            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
 
         x_pred = decoder([h_pred, skip])
 
@@ -284,13 +288,7 @@ def train(x, cond, epoch):
 
     beta = kl_anneal.get_beta("cyclical", epoch)
 
-    # # ==========
-    # # save epoch data
-    # epoch_plotting_data.append(beta)
-    # # ==========
-
     loss = mse + kld * beta
-    # loss = mse + kld*args.beta
     loss.backward()
 
     frame_predictor_optimizer.step()
@@ -300,7 +298,15 @@ def train(x, cond, epoch):
 
     # optimizer.step()
 
-    return loss.detach().cpu().numpy() / (args.n_past + args.n_future), mse.detach().cpu().numpy() / (args.n_past + args.n_future), kld.detach().cpu().numpy() / (args.n_future + args.n_past)
+    return beta, loss.detach().cpu().numpy() / (args.n_past + args.n_future), mse.detach().cpu().numpy() / (args.n_past + args.n_future), kld.detach().cpu().numpy() / (args.n_future + args.n_past)
+
+# ============================================================s
+#  Write the labels of the csv for plotting
+
+headerList = ['Epoch', 'KL Weight', 'TFR', 'Loss', 'PSNR']
+
+with open('./{}/epoch_curve_plotting_data.csv'.format(args.log_dir), 'a+', newline ='') as f:
+        write = csv.writer(headerList)
 
 # ============================================================
 # Start Training Process
@@ -333,10 +339,15 @@ for epoch in range(start_epoch,  start_epoch + niter):
         x, cond = next(training_batch_generator)
         
         # print(cond)        
-        loss, mse, kld = train(x, cond, epoch)
+        beta, loss, mse, kld = train(x, cond, epoch, tfr_value)
         epoch_loss += loss
         epoch_mse += mse
         epoch_kld += kld
+    
+    # ==========
+    # save epoch data
+    epoch_plotting_data.append(beta)
+    # ==========
 
     if epoch >= args.tfr_start_decay_epoch:
         tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
@@ -370,58 +381,8 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     psnrs = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
-    # print("pred_seq shape")
-    # print(len(pred_seq))
-    # print("gt_seq shape")
-    # print(len(gt_seq))
-    # print()
-
-    # print("pred_seq[0] shape")
-    # print(len(pred_seq[0]))
-    # print("gt_seq[0] shape")
-    # print(len(gt_seq[0]))
-    # print()
-
-    # print("pred_seq[0][0] shape")
-    # print(len(pred_seq[0][0]))
-    # print("gt_seq[0][0] shape")
-    # print(len(gt_seq[0][0]))
-    # print()
-
-    # psnr = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
-
-    # for i in range(args.batch_size):
-
-    #     psnr_gen = [ [] for t in range(args.n_eval) ]
-    #     psnr_gt  = [ [] for t in range(args.n_eval) ]
-
-    #     for t in range(args.n_eval):
-    #         row = []
-    #         psnr_gt.append(gt_seq[t][i])
-    #         for s in range(5): # nsample = 5
-    #             row.append(pred_seq[s][t][i])
-    #         psnr_gen[t].append(row)
-
-    # psnr_list = []
-
-    # for i in range(args.batch_size):
-    #     # for t in range(args.n_past, args.n_eval):
-    # for s in range(5): # nsample = 5
-    #     _, _, psnr = finn_eval_seq(gt_seq[:][s][:], pred_seq[:][s][:])
-    #     psnr_list.append(psnr)
-
-    # print("psnr_list")
-    # print(psnr_list)
-    # print()
-
     ave_psnr = np.mean(np.concatenate(psnrs))
     print("ave_psnr: ", ave_psnr)
-
-        
-#     psnr_list.append(psnr)
-
-#     ave_psnr = np.mean(np.concatenate(psnr))
-#     print("ave_psnr: ", ave_psnr)
 
     # ==========
     # save epoch data
@@ -446,8 +407,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     if epoch % 10 == 0:
         print('log dir: %s' % args.log_dir)
 
-    with open('epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
-      
+    with open('./{}/epoch_curve_plotting_data.csv'.format(args.log_dir), 'a+', newline ='') as f:
         # using csv.writer method from CSV package
         write = csv.writer(f)
         write.writerow(epoch_plotting_data)
