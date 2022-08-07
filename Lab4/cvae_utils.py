@@ -56,7 +56,7 @@ def mse_metric(x1, x2):
 # ssim function used in Babaeizadeh et al. (2017), Fin et al. (2016), etc.
 def finn_eval_seq(gt, pred):
     T = len(gt)
-    bs = gt[0].shape[0]
+    bs = len(gt[0])
 
     print("T: ", T)
     print("bs: ", bs)
