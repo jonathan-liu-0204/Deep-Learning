@@ -383,7 +383,6 @@ for epoch in range(start_epoch,  start_epoch + niter):
     psnrs = pred(validate_seq, validate_cond, encoder, decoder, frame_predictor, posterior, args, device)
 
     ave_psnr = np.mean(np.concatenate(psnrs))
-    # print("ave_psnr: ", ave_psnr)
 
     # ==========
     # save epoch data

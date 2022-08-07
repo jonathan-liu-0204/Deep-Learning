@@ -57,9 +57,6 @@ def mse_metric(x1, x2):
 def finn_eval_seq(gt, pred):
     T = len(gt)
     bs = gt[0].shape[0]
-
-    # print("T: ", T)
-    # print("bs: ", bs)
     
     ssim = np.zeros((bs, T))
     psnr = np.zeros((bs, T))
@@ -68,29 +65,7 @@ def finn_eval_seq(gt, pred):
         for t in range(T):
             origin = gt[t][i]
             predict = pred[t][i]
-            # origin = gt[t][i].detach().cpu().numpy()
-            # predict = pred[t][i].detach().cpu().numpy()
 
-            # print("origin.shape")
-            # print(origin.shape)
-            # print("predict.shape")
-            # print(predict.shape)
-            # print()
-
-            # print("origin[0].shape")
-            # print(origin[0].shape)
-            # print("predict[0].shape")
-            # print(predict[0].shape)
-            # print()
-
-            # print("origin[0][0].shape")
-            # print(origin[0][0].shape)
-            # print("predict[0][0].shape")
-            # print(predict[0][0].shape)
-            # print()
-            
-            # origin = gt[t][i]
-            # predict = pred[t][i]
             for c in range(origin.shape[0]):
                 res = finn_ssim(origin[c], predict[c]).mean()
                 if math.isnan(res):
@@ -122,9 +97,6 @@ def finn_ssim(img1, img2, data_range=1., cs_map=False):
     size = 11
     sigma = 1.5
     window = fspecial_gauss(size, sigma)
-
-    # print("window.shape")
-    # print(window.shape)
 
     K1 = 0.01
     K2 = 0.03
@@ -172,14 +144,10 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
         posterior.hidden = posterior.init_hidden()
-        # gen_seq[s].append(x[0])
         x_in = x[0]
 
         gen_seq = []
         gt_seq = []
-
-        # gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
-        # gt_seq.append(x[0].data.cpu().numpy()) #change back when plotting
 
         for i in range(1, args.n_eval):
             if args.last_frame_skip or i < args.n_past:	
@@ -193,14 +161,10 @@ def pred(x, cond, encoder, decoder, frame_predictor, posterior, args, device):
                 z_t, _, _ = posterior(h_seq[i][0])
                 frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)) 
                 x_in = x[i]
-                # gen_seq[s].append(x_in) #change back when plotting
-                # gen_seq.append(x_in.data.cpu().numpy()) #change back when plotting
-                # gt_seq.append(x[i].data.cpu().numpy()) #change back when plotting
             else:
                 z_t = torch.cuda.FloatTensor(args.batch_size, args.z_dim).normal_()
                 h = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1)).detach()
                 x_in = decoder([h, skip]).detach()
-                # gen_seq[s].append(x_in) #change back when plotting
                 gen_seq.append(x_in.data.cpu().numpy())
                 gt_seq.append(x[i].data.cpu().numpy())
 
@@ -220,7 +184,6 @@ def is_sequence(arg):
 def image_tensor(inputs, padding=1):
     # assert is_sequence(inputs)
     assert len(inputs) > 0
-    # print(inputs)
 
     # if this is a list of lists, unpack them all and grid them up
     if is_sequence(inputs[0]) or (hasattr(inputs, "dim") and inputs.dim() > 4):
@@ -264,16 +227,9 @@ def image_tensor(inputs, padding=1):
             result[:, :, i * y_dim + i * padding :
                    (i+1) * y_dim + i * padding].copy_(image)
         return result
-
-# def swapPositions(list, pos1, pos2):
-#     list[pos1], list[pos2] = list[pos2], list[pos1]
-#     return list
-
+    
 def draw_text_tensor(tensor, text):
     np_x = tensor.transpose(0, 1).transpose(1, 2).data.cpu().numpy()
-    # np_x = np.transpose(tensor, (1, 2, 0))
-    # np_x = swapPositions(tensor, 0, 1)
-    # np_x = swapPositions(np_x, 1, 2)
     pil = Image.fromarray(np.uint8(np_x*255))
     draw = ImageDraw.Draw(pil)
     draw.text((4, 64), text, (0,0,0))
@@ -340,8 +296,6 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
     ssim = np.zeros((args.batch_size, nsample, args.n_future))
     psnr = np.zeros((args.batch_size, nsample, args.n_future))
     
-    # print("gt_seq len(x): ", len(x)) 
-
     h_seq = [encoder(x[i]) for i in range(args.n_past)]
 
     for s in range(nsample):
@@ -400,8 +354,6 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
 
         for t in range(args.n_eval):
 
-            # row = []
-
             #Ground truth
             gifs[t].append(add_border(gt_seq_draw[t][i], 'green'))
             text[t].append('Ground\ntruth')
@@ -425,32 +377,8 @@ def plot_pred(x, cond, encoder, decoder, frame_predictor, posterior, epoch, args
                 gifs[t].append(add_border(all_gen[rand_sidx[s]][t][i], color))
                 text[t].append('Random\nsample %d' % (s+1))
         
-        # np_gifs = np.array(gifs)
-
-        # print("gifs")
-        # print(gifs)
-        # print()
-        # print("np_gifs")
-        # print(np_gifs)
-        # print()
-
         fname = directory + "/sample_" + str(i) + ".gif"
         save_gif_with_text(fname, gifs, text)
-
-    # roiginal plottinh
-    # for i in range(args.batch_size):
-
-    #     gifs = [ [] for t in range(args.n_eval) ]
-
-    #     for t in range(args.n_eval):
-    #         row = []
-    #         row.append(gt_seq_draw[t][i])
-    #         for s in range(nsample):
-    #             row.append(gen_seq_draw[s][t][i])
-    #         gifs[t].append(row)
-
-    #     fname = directory + "/sample_" + str(i) + ".gif"
-    #     save_gif(fname, gifs)
 
 
 def add_border(x, color, pad=1):
