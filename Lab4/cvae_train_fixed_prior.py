@@ -225,12 +225,12 @@ class kl_annealing():
             if epochs > 100:
                 beta = 1
             else:
-                beta = 0.05 * (epochs % 100)
+                beta = 0.01 * (epochs % 100)
         else: #"cyclical"
             if epochs % 100 > 50:
                 beta = 1
             else:
-                beta = 0.01 * (epochs % 100)
+                beta = 0.02 * (epochs % 100)
         return beta
         # raise NotImplementedError
 
@@ -351,7 +351,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     # ==========
 
     if epoch >= args.tfr_start_decay_epoch:
-        tfr_value = tfr_value * (1 - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch)))
+        tfr_value = tfr_value - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch))
 
         if tfr_value < args.tfr_lower_bound:
             tfr_value = args.tfr_lower_bound
@@ -398,6 +398,20 @@ for epoch in range(start_epoch,  start_epoch + niter):
 
     if epoch % 5 == 0:
 
+        with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
+            train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
+
+        # save the model
+        save_path = args.log_dir + "/" + str(epoch) + "_model.pth"
+        torch.save({'encoder': encoder,
+                    'decoder': decoder,
+                    'frame_predictor': frame_predictor,
+                    'posterior': posterior,
+                    'args': args,
+                    'last_epoch': epoch}, 
+                    save_path)
+    
+    if epoch == (niter - 1):
         with open('./{}/train_record.txt'.format(args.log_dir), 'a') as train_record:
             train_record.write(('====================== validate psnr = {:.8f} ========================\n'.format(ave_psnr)))
 
