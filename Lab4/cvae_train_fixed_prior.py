@@ -351,7 +351,7 @@ for epoch in range(start_epoch,  start_epoch + niter):
     # ==========
 
     if epoch >= args.tfr_start_decay_epoch:
-        tfr_value = tfr_value - (args.tfr_decay_step * (epoch - args.tfr_start_decay_epoch))
+        tfr_value = tfr_value - args.tfr_decay_step
 
         if tfr_value < args.tfr_lower_bound:
             tfr_value = args.tfr_lower_bound
