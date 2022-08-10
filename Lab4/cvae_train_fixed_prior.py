@@ -286,7 +286,7 @@ def train(x, cond, epoch, tfr_value):
         kld += kl_criterion(mu, logvar, args)
         # raise NotImplementedError
 
-    beta = kl_anneal.get_beta("cyclical", epoch)
+    beta = kl_anneal.get_beta("monotonic", epoch)
 
     loss = mse + kld * beta
     loss.backward()
