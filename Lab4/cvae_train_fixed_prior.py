@@ -76,7 +76,7 @@ assert 0 <= args.tfr_decay_step and args.tfr_decay_step <= 1
 
 if args.model_dir != '':
         # load model and continue training from checkpoint
-        saved_model = torch.load('%s/model.pth' % args.model_dir)
+        saved_model = torch.load('%s/230_model.pth' % args.model_dir)
         optimizer = args.optimizer
         model_dir = args.model_dir
         niter = args.niter
@@ -85,6 +85,7 @@ if args.model_dir != '':
         args.model_dir = model_dir
         args.log_dir = '%s/continued' % args.log_dir
         start_epoch = saved_model['last_epoch']
+        name = "rnn_size=256-predictor-posterior-rnn_layers=2-1-n_past=2-n_future=10-lr=0.0020-g_dim=128-z_dim=10-last_frame_skip=False-beta=0.0001000"
 else:
     name = 'rnn_size=%d-predictor-posterior-rnn_layers=%d-%d-n_past=%d-n_future=%d-lr=%.4f-g_dim=%d-z_dim=%d-last_frame_skip=%s-beta=%.7f'\
         % (args.rnn_size, args.predictor_rnn_layers, args.posterior_rnn_layers, args.n_past, args.n_future, args.lr, args.g_dim, args.z_dim, args.last_frame_skip, args.beta)
@@ -316,7 +317,7 @@ progress = tqdm(total = args.niter)
 best_val_psnr = 0
 tfr_value = args.tfr
 
-for epoch in range(start_epoch,  start_epoch + niter):
+for epoch in range(start_epoch,  niter):
 
     # ==========
     # save epoch data
