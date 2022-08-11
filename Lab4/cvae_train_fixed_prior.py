@@ -23,7 +23,7 @@ torch.backends.cudnn.benchmark = True
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.004, type=float, help='learning rate')
+    parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
     parser.add_argument('--batch_size', default=12, type=int, help='batch size')
     parser.add_argument('--log_dir', default='./LOG', help='base directory to save logs')
