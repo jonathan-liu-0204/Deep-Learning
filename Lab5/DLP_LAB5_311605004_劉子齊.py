@@ -10,6 +10,11 @@ import torchvision.utils as vutils
 
 from evaluator import evaluation_model
 
+import json
+from PIL import Image
+import numpy as np
+
+
 # =====================================
 # Parameters
 
@@ -51,6 +56,49 @@ beta1 = 0.5
 ngpu = 1
 
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+
+# =====================================
+# Get Data
+
+class GetData():
+    def __init__(self, mode):
+        self.mode = mode
+        data_list = json.load(open('./data/'+mode+'.json', 'r'))
+
+        if mode == "train":
+            data = [i for i in data_list.items()]
+        self.data = data
+
+        self.object_list = json.load(open('./data/objects.json', 'r'))
+        self.transformation = transforms.Compose([transforms.Resize([64, 64]),
+                                                transforms.ToTensor(),
+                                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, image_num):
+        if self.mode == 'train': 
+            img_name = self.data[image_num][0]
+            objects = [self.object_list[obj] for obj in self.data[image_num][1]]
+
+            # image transformation
+            img = np.array(Image.open('./data/iclevr/'+img_name))[...,:-1]
+            img = self.transformation(Image.fromarray(img))
+            
+            # condition embedding - one hot
+            condition = torch.zeros(24)
+            condition = torch.tensor([v+1 if i in objects else v for i,v in enumerate(condition)])
+            
+            data = (img, condition)
+        else:
+            # condition embedding - one hot
+            objects = [self.object_list[obj] for obj in self.data[image_num]]
+            condition = torch.zeros(24)
+            data = torch.tensor([v+1 if i in objects else v for i,v in enumerate(condition)])
+        
+        return data  
+
 
 # =====================================
 # custom weights initialization called on netG and netD
