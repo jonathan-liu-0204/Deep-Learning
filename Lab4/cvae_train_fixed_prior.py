@@ -188,7 +188,7 @@ train_loader = DataLoader(train_data,
 validate_loader = DataLoader(validate_data,
                         num_workers=args.num_workers,
                         batch_size=args.batch_size,
-                        shuffle=True,
+                        shuffle=False,
                         drop_last=True,
                         pin_memory=False)
 
@@ -264,6 +264,11 @@ def train(x, cond, epoch, tfr_value):
     weight_of_tf_true = round(100*tfr_value, 0)
     weight_of_tf_false = 100 - weight_of_tf_true
     use_teacher_forcing = random.choices(choices_of_tf, weights=[weight_of_tf_true, weight_of_tf_false])
+    # use_teacher_forcing = False
+
+    print("Applying Teacher Forcing?  A: ", use_teacher_forcing[0])
+    x_pred_seq = []
+    x_pred_seq.append(x[0])
 
     for i in range(1, args.n_past + args.n_future):
         h_target = h_seq[i][0]
@@ -275,13 +280,18 @@ def train(x, cond, epoch, tfr_value):
 
         z_t, mu, logvar = posterior(h_target)
         # h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
+
+        if use_teacher_forcing[0] == False:
+            h, _ = encoder(x_pred_seq[i-1])
         
-        if use_teacher_forcing:
-            h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
-        else:
-            h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
+        # if use_teacher_forcing:
+        #     h_pred = frame_predictor(torch.cat([h_target, z_t, cond[i-1]], 1))
+        # else:
+        h_pred = frame_predictor(torch.cat([h, z_t, cond[i-1]], 1))
 
         x_pred = decoder([h_pred, skip])
+
+        x_pred_seq.append(x_pred)
 
         mse += mse_criterion(x_pred, x[i].to(device))
         kld += kl_criterion(mu, logvar, args)
