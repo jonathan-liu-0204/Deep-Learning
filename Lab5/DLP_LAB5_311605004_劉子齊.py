@@ -6,6 +6,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
+from torchvision.utils import make_grid
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
@@ -15,7 +16,8 @@ from evaluator import evaluation_model
 import json
 from PIL import Image
 import numpy as np
-
+import matplotlib.pyplot as plt
+import csv
 
 # =====================================
 # Parameters
@@ -58,6 +60,15 @@ beta1 = 0.5
 ngpu = 1
 
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+
+# ============================================================s
+#  Write the labels of the csv for plotting
+
+headerList = ['Epoch', 'Loss_D', 'tLoss_G', 'D(x)', 'D(G(z))']
+
+with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
+    write = csv.writer(f)
+    write.writerow(headerList)
 
 # =====================================
 # Get Data
@@ -217,7 +228,6 @@ criterion = nn.BCELoss()
 # =====================================
 # Start Training
 
-img_list = []
 G_losses = []
 D_losses = []
 
@@ -233,12 +243,13 @@ fixed_noise = torch.randn(64, nz, 1, 1, device=device)
 trainset = GetData('train', image_size=64)
 trainloader = DataLoader(trainset, batch_size, workers, shuffle=True)
 
-iters = 0
-
 print("Starting Training Loop...")
 
 # For each epoch
 for epoch in range(num_epochs):
+
+    csv_data = []
+    
     # For each batch in the dataloader
     for i, data in enumerate(trainloader):
 
@@ -309,19 +320,70 @@ for epoch in range(num_epochs):
         # Update G
         optimizerG.step()
 
-        # Output training stats
-        if i % 50 == 0:
-            print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                  % (epoch, num_epochs, i, len(trainloader), errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+    ############################
+    # (3) Testing
+    ###########################
 
-        # Save Losses for plotting later
-        G_losses.append(errG.item())
-        D_losses.append(errD.item())
+    img_list = []
+    accuracy_list = []
 
-        # Check how the generator is doing by saving G's output on fixed_noise
-        if (iters % 500 == 0) or ((epoch == num_epochs-1) and (i == len(dataloader)-1)):
-            with torch.no_grad():
-                fake = netG(fixed_noise).detach().cpu()
-            img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
+    EVAL_MOD = evaluation_model()
 
-        iters += 1
+    if noise == None:
+        noise = torch.randn(batch_size, nz, 1, 1, device=device)
+    
+    testset = GetData("test")
+    testloader = DataLoader(testset, batch_size, workers)
+    
+    with torch.no_grad():
+        for status in testloader:
+            status = status.to(device)
+
+            fake = netG(noise, status).detach()
+
+            accuracy_list.append(EVAL_MOD.eval(fake, status))
+            img_list.append(make_grid(fake, nrow=8, padding=2, normalize=True).to("cpu"))
+    
+    accuracy = sum(accuracy_list) / len(accuracy_list)
+
+    ############################
+    # (4) Save model and get the result
+    ###########################
+
+    if epoch % 5 == 0:
+        torch.save(netG, "./models/G_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
+        torch.save(netD, "./models/D_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
+
+    # Output training stats
+    print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
+            % (epoch+1, num_epochs, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+    
+    csv_data.append(epoch+1)
+    csv_data.append(errD.item())
+    csv_data.append(errG.item())
+    csv_data.append(D_x)
+    csv_data.append(str(round(D_G_z1, 4)) + " / " + str(round(D_G_z2, 4)))
+
+    with open('./{}/epoch_curve_plotting_data.csv'.format(args.log_dir), 'a+', newline ='') as f:
+        # using csv.writer method from CSV package
+        write = csv.writer(f)
+        write.writerow(csv_data)
+
+    # Save Losses for plotting later
+    G_losses.append(errG.item())
+    D_losses.append(errD.item())
+    torch.cuda.empty_cache()
+
+# =====================================
+# Output the result figure
+
+plt.figure(figsize=(10, 6))
+x = range(len(G_losses))
+plt.ylabel("Loss")
+plt.xlabel("Epochs")
+plt.title("Training Loss Curve", fontsize=18)
+plt.plot(x, G_losses, label='G_loss')
+plt.plot(x, D_losses, label='D_loss')
+plt.legend()
+# plt.show()
+plt.savefig("./img/training_loss.png")
