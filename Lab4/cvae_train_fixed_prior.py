@@ -266,7 +266,7 @@ def train(x, cond, epoch, tfr_value):
     use_teacher_forcing = random.choices(choices_of_tf, weights=[weight_of_tf_true, weight_of_tf_false])
     # use_teacher_forcing = False
 
-    print("Applying Teacher Forcing? ", use_teacher_forcing[0])
+    # print("Applying Teacher Forcing? ", use_teacher_forcing[0])
     x_pred_seq = []
     x_pred_seq.append(x[0])
 
