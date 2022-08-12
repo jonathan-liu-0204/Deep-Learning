@@ -249,7 +249,7 @@ print("Starting Training Loop...")
 for epoch in range(num_epochs):
 
     csv_data = []
-    
+
     # For each batch in the dataloader
     for i, data in enumerate(trainloader):
 
@@ -364,7 +364,7 @@ for epoch in range(num_epochs):
     csv_data.append(D_x)
     csv_data.append(str(round(D_G_z1, 4)) + " / " + str(round(D_G_z2, 4)))
 
-    with open('./{}/epoch_curve_plotting_data.csv'.format(args.log_dir), 'a+', newline ='') as f:
+    with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
         # using csv.writer method from CSV package
         write = csv.writer(f)
         write.writerow(csv_data)
