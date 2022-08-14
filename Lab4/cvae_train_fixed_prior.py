@@ -332,7 +332,7 @@ for epoch in range(start_epoch,  niter):
     # =============
     # initialize optimizer here with the updated learning rate
     decay_rate = args.lr / niter
-    args.lr = args.lr * (1. + (1. + decay_rate * epoch))
+    args.lr = args.lr * (1. / (1. + decay_rate * epoch))
 
     frame_predictor_optimizer = args.optimizer(frame_predictor.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
     posterior_optimizer = args.optimizer(posterior.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
