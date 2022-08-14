@@ -23,7 +23,7 @@ torch.backends.cudnn.benchmark = True
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
+    parser.add_argument('--lr', default=0.005, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
     parser.add_argument('--batch_size', default=12, type=int, help='batch size')
     parser.add_argument('--log_dir', default='./LOG', help='base directory to save logs')
@@ -153,10 +153,10 @@ else:
 # ============================================================
 # Build the Optimizers
 
-frame_predictor_optimizer = args.optimizer(frame_predictor.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
-posterior_optimizer = args.optimizer(posterior.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
-encoder_optimizer = args.optimizer(encoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
-decoder_optimizer = args.optimizer(decoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+# frame_predictor_optimizer = args.optimizer(frame_predictor.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+# posterior_optimizer = args.optimizer(posterior.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+# encoder_optimizer = args.optimizer(encoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+# decoder_optimizer = args.optimizer(decoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
 
 # ============================================================
 # Loss Functions
@@ -314,7 +314,7 @@ def train(x, cond, epoch, tfr_value):
 # ============================================================s
 #  Write the labels of the csv for plotting
 
-headerList = ['Epoch', 'KL Weight', 'TFR', 'Loss', 'PSNR']
+headerList = ['Epoch', 'LR', 'KL Weight', 'TFR', 'Loss', 'PSNR']
 
 with open('./{}/epoch_curve_plotting_data.csv'.format(args.log_dir), 'a+', newline ='') as f:
     write = csv.writer(f)
@@ -329,10 +329,22 @@ tfr_value = args.tfr
 
 for epoch in range(start_epoch,  niter):
 
+    # =============
+    # initialize optimizer here with the updated learning rate
+    decay_rate = args.lr / niter
+    args.lr = args.lr * (1. + (1. + decay_rate * epoch))
+
+    frame_predictor_optimizer = args.optimizer(frame_predictor.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+    posterior_optimizer = args.optimizer(posterior.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+    encoder_optimizer = args.optimizer(encoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+    decoder_optimizer = args.optimizer(decoder.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+
     # ==========
     # save epoch data
     epoch_plotting_data = []
     epoch_plotting_data.append(epoch)
+
+    epoch_plotting_data.append(args.lr)
     # ==========
 
 
