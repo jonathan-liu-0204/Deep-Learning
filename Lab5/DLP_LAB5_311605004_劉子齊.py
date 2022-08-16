@@ -20,47 +20,7 @@ import matplotlib.pyplot as plt
 import csv
 import random
 
-# =====================================
-# Parameters
 
-# Root directory for dataset
-dataroot = "data"
-
-# Number of workers for dataloader
-workers = 2
-
-# Batch size during training
-batch_size = 128
-
-# Spatial size of training images. All images will be resized to this
-#   size using a transformer.
-image_size = 64
-
-# Number of channels in the training images. For color images this is 3
-nc = 3
-
-# Size of z latent vector (i.e. size of generator input)
-nz = 100
-
-# Size of feature maps in generator
-ngf = 64
-
-# Size of feature maps in discriminator
-ndf = 64
-
-# Number of training epochs
-num_epochs = 100
-
-# Learning rate for optimizers
-lr = 0.0002
-
-# Beta1 hyperparam for Adam optimizers
-beta1 = 0.5
-
-# Number of GPUs available. Use 0 for CPU mode.
-ngpu = 1
-
-device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
 # ============================================================s
 #  Write the labels of the csv for plotting
@@ -129,12 +89,17 @@ def weights_init(m):
 # Generator Code
 
 class Generator(nn.Module):
-    def __init__(self, ngpu=1):
+    def __init__(self, ngpu=1, nz=100, ngf=64, nc=3):
         super(Generator, self).__init__()
+
         self.ngpu = ngpu
+        self.nz = nz
+        self.ngf = ngf
+        self.nc = nc
+
         self.main = nn.Sequential(
             # input is Z, going into a convolution
-            nn.ConvTranspose2d( nz, ngf * 8, 4, 1, 0, bias=False),
+            nn.ConvTranspose2d(nz+24, ngf * 8, 4, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
@@ -155,19 +120,26 @@ class Generator(nn.Module):
             # state size. (nc) x 64 x 64
         )
 
-    def forward(self, input):
+    def forward(self, input, condition):
+        input = torch.cat((input, condition.view(input.size(0), -1, 1, 1)), 1)
         return self.main(input)
 
 # =====================================
 # Discriminator Code
 
 class Discriminator(nn.Module):
-    def __init__(self, ngpu=1):
+    def __init__(self, ngpu=1, ndf=64, nc=3):
         super(Discriminator, self).__init__()
+
         self.ngpu = ngpu
+        self.ndf = ndf
+        self.nc = nc
+
+        self.linear = nn.Linear(24, ndf*ndf)
+
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            nn.Conv2d(nc+1, ndf, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
@@ -186,37 +158,12 @@ class Discriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, input):
+    def forward(self, input, condition):
+        condition = self.linear(condition).view(input.size(0), 1, self.ndf, self.ndf)
+        input = torch.cat((input, condition), 1)
         return self.main(input)
 
-# =====================================
-# Generator & Discriminator Basic Setup
 
-# Create the generator
-netG = Generator().to(device)
-
-# Apply the weights_init function to randomly initialize all weights to mean=0, stdev=0.02.
-netG.apply(weights_init)
-
-print(netG)
-
-
-# Create the Discriminator
-netD = Discriminator().to(device)
-
-# Apply the weights_init function to randomly initialize all weights to mean=0, stdev=0.2.
-netD.apply(weights_init)
-
-# Print the model
-print(netD)
-
-# =====================================
-# Setup Optimizers & Criterion, etc
-
-optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
-optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
-
-criterion = nn.BCELoss()
 
 # =====================================
 # Setup StepLR
@@ -227,7 +174,7 @@ criterion = nn.BCELoss()
 # =====================================
 # Start Training
 
-def train():
+def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
     G_losses = []
     D_losses = []
 
@@ -242,6 +189,14 @@ def train():
     # initialize training data 
     trainset = GetData('train')
     trainloader = DataLoader(dataset=trainset, batch_size=batch_size, num_workers=workers, shuffle=True)
+
+    # =====================================
+    # Setup Optimizers & Criterion, etc
+
+    optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
+
+    criterion = nn.BCELoss()
 
     print("Starting Training Loop...")
 
@@ -379,11 +334,73 @@ def train():
 
 if __name__ == "__main__":
 
+    # =====================================
+    # Parameters
+
+    # Root directory for dataset
+    dataroot = "data"
+
+    # Number of workers for dataloader
+    workers = 2
+
+    # Batch size during training
+    batch_size = 128
+
+    # Spatial size of training images. All images will be resized to this
+    #   size using a transformer.
+    image_size = 64
+
+    # Number of channels in the training images. For color images this is 3
+    nc = 3
+
+    # Size of z latent vector (i.e. size of generator input)
+    nz = 100
+
+    # Size of feature maps in generator
+    ngf = 64
+
+    # Size of feature maps in discriminator
+    ndf = 64
+
+    # Number of training epochs
+    num_epochs = 100
+
+    # Learning rate for optimizers
+    lr = 0.0002
+
+    # Beta1 hyperparam for Adam optimizers
+    beta1 = 0.5
+
+    # Number of GPUs available. Use 0 for CPU mode.
+    ngpu = 1
+
+    device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+    print("Using Device: ", device)
+
     manualSeed = 1
     random.seed(manualSeed)
     torch.manual_seed(manualSeed)
 
-    G_losses, D_losses = train()
+    # =====================================
+    # Generator & Discriminator Basic Setup
+
+    # Create the generator
+    netG = Generator().to(device)
+
+    # Apply the weights_init function to randomly initialize all weights to mean=0, stdev=0.02.
+    netG.apply(weights_init)
+
+    print(netG)
+
+    # Create the Discriminator
+    netD = Discriminator().to(device)
+
+    # Apply the weights_init function to randomly initialize all weights to mean=0, stdev=0.2.
+    netD.apply(weights_init)
+
+    print(netD)
+
+    G_losses, D_losses = train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz)
 
     # =====================================
     # Output the result figure
