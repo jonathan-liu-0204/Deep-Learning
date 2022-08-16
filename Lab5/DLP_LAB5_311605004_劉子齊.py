@@ -12,6 +12,7 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 
 from evaluator import evaluation_model
+from getdata import LoadData
 
 import json
 from PIL import Image
@@ -19,60 +20,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import csv
 import random
-
-
-
-# ============================================================s
-#  Write the labels of the csv for plotting
-
-headerList = ['Epoch', 'Loss_D', 'tLoss_G', 'D(x)', 'D(G(z))']
-
-with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
-    write = csv.writer(f)
-    write.writerow(headerList)
-
-# =====================================
-# Get Data
-
-class GetData():
-    def __init__(self, mode):
-        self.mode = mode
-        data_list = json.load(open('./data/'+mode+'.json', 'r'))
-
-        if mode == "train":
-            data = [i for i in data_list.items()]
-        self.data = data
-
-        self.object_list = json.load(open('./data/objects.json', 'r'))
-        self.transformation = transforms.Compose([transforms.Resize([64, 64]),
-                                                transforms.ToTensor(),
-                                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, image_num):
-        if self.mode == 'train': 
-            img_name = self.data[image_num][0]
-            objects = [self.object_list[obj] for obj in self.data[image_num][1]]
-
-            # image transformation
-            img = np.array(Image.open('./data/iclevr/'+img_name))[...,:-1]
-            img = self.transformation(Image.fromarray(img))
-            
-            # condition embedding - one hot
-            condition = torch.zeros(24)
-            condition = torch.tensor([j+1 if i in objects else j for i,j in enumerate(condition)])
-            
-            data = (img, condition)
-        else:
-            # condition embedding - one hot
-            objects = [self.object_list[obj] for obj in self.data[image_num]]
-            condition = torch.zeros(24)
-            data = torch.tensor([v+1 if i in objects else v for i,v in enumerate(condition)])
-        
-        return data  
-
 
 # =====================================
 # custom weights initialization called on netG and netD
@@ -184,10 +131,10 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
 
     # Create batch of latent vectors that we will use to visualize
     #  the progression of the generator
-    fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+    fixed_noise = torch.randn(32, nz, 1, 1, device=device)
 
     # initialize training data 
-    trainset = GetData('train')
+    trainset = LoadData('train')
     trainloader = DataLoader(dataset=trainset, batch_size=batch_size, num_workers=workers, shuffle=True)
 
     # =====================================
@@ -284,17 +231,17 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
 
         EVAL_MOD = evaluation_model()
 
-        if noise == None:
-            noise = torch.randn(batch_size, nz, 1, 1, device=device)
+        if fixed_noise == None:
+            fixed_noise = torch.randn(batch_size, nz, 1, 1, device=device)
         
-        testset = GetData("test")
+        testset = LoadData("test")
         testloader = DataLoader(testset, batch_size, workers)
         
         with torch.no_grad():
             for status in testloader:
                 status = status.to(device)
 
-                fake = netG(noise, status).detach()
+                fake = netG(fixed_noise, status).detach()
 
                 accuracy_list.append(EVAL_MOD.eval(fake, status))
                 img_list.append(make_grid(fake, nrow=8, padding=2, normalize=True).to("cpu"))
@@ -306,11 +253,11 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
         ###########################
 
         if epoch % 5 == 0:
-            torch.save(netG, "./models/G_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
-            torch.save(netD, "./models/D_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
+            torch.save(netG, "./models/G_epoch_" + str(epoch+1) + "{:.4f}.ckpt".format(accuracy))
+            torch.save(netD, "./models/D_epoch_" + str(epoch+1) + "{:.4f}.ckpt".format(accuracy))
 
         # Output training stats
-        print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
+        print('[%d/%d]\tLoss_D: %.4f  |  Loss_G: %.4f  |  D(x): %.4f  |  D(G(z)): %.4f / %.4f'
                 % (epoch+1, num_epochs, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
         
         csv_data.append(epoch+1)
@@ -399,6 +346,13 @@ if __name__ == "__main__":
     netD.apply(weights_init)
 
     print(netD)
+
+    #  Write the labels of the csv for plotting
+    headerList = ['Epoch', 'Loss_D', 'tLoss_G', 'D(x)', 'D(G(z))']
+
+    with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
+        write = csv.writer(f)
+        write.writerow(headerList)
 
     G_losses, D_losses = train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz)
 
