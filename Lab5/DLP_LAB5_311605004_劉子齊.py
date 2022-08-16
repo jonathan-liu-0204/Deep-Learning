@@ -18,6 +18,7 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
+import random
 
 # =====================================
 # Parameters
@@ -194,8 +195,7 @@ class Discriminator(nn.Module):
 # Create the generator
 netG = Generator().to(device)
 
-# Apply the weights_init function to randomly initialize all weights
-#  to mean=0, stdev=0.02.
+# Apply the weights_init function to randomly initialize all weights to mean=0, stdev=0.02.
 netG.apply(weights_init)
 
 print(netG)
@@ -204,8 +204,7 @@ print(netG)
 # Create the Discriminator
 netD = Discriminator().to(device)
 
-# Apply the weights_init function to randomly initialize all weights
-#  to mean=0, stdev=0.2.
+# Apply the weights_init function to randomly initialize all weights to mean=0, stdev=0.2.
 netD.apply(weights_init)
 
 # Print the model
@@ -228,162 +227,174 @@ criterion = nn.BCELoss()
 # =====================================
 # Start Training
 
-G_losses = []
-D_losses = []
+def train():
+    G_losses = []
+    D_losses = []
 
-# Establish convention for real and fake labels during training
-real_label = 1.
-fake_label = 0.
+    # Establish convention for real and fake labels during training
+    real_label = 1.
+    fake_label = 0.
 
-# Create batch of latent vectors that we will use to visualize
-#  the progression of the generator
-fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+    # Create batch of latent vectors that we will use to visualize
+    #  the progression of the generator
+    fixed_noise = torch.randn(64, nz, 1, 1, device=device)
 
-# initialize training data 
-trainset = GetData('train', image_size=64)
-trainloader = DataLoader(trainset, batch_size, workers, shuffle=True)
+    # initialize training data 
+    trainset = GetData('train')
+    trainloader = DataLoader(dataset=trainset, batch_size=batch_size, num_workers=workers, shuffle=True)
 
-print("Starting Training Loop...")
+    print("Starting Training Loop...")
 
-# For each epoch
-for epoch in range(num_epochs):
+    # For each epoch
+    for epoch in range(num_epochs):
 
-    csv_data = []
+        csv_data = []
 
-    # For each batch in the dataloader
-    for i, data in enumerate(trainloader):
+        # For each batch in the dataloader
+        for i, data in enumerate(trainloader):
+
+            ############################
+            # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+            ###########################
+            ## Train with all-real batch
+            netD.zero_grad()
+
+            # Format batch
+            image = data[0].to(device)
+            status = data[1].to(device)
+            b_size = image.size(0)
+            label = torch.full((b_size,), real_label, dtype=torch.float, device=device)
+
+            # Forward pass real batch through D
+            output = netD(image, status).view(-1)
+
+            # Calculate loss on all-real batch
+            errD_real = criterion(output, label)
+
+            # Calculate gradients for D in backward pass
+            errD_real.backward()
+            D_x = output.mean().item()
+
+            ## Train with all-fake batch
+            # Generate batch of latent vectors
+            noise = torch.randn(b_size, nz, 1, 1, device=device)
+
+            # Generate fake image batch with G
+            fake = netG(noise, status)
+            label.fill_(fake_label)
+
+            # Classify all fake batch with D
+            output = netD(fake.detach(), status).view(-1)
+
+            # Calculate D's loss on the all-fake batch
+            errD_fake = criterion(output, label)
+
+            # Calculate the gradients for this batch, accumulated (summed) with previous gradients
+            errD_fake.backward()
+            D_G_z1 = output.mean().item()
+
+            # Compute error of D as sum over the fake and the real batches
+            errD = errD_real + errD_fake
+
+            # Update D
+            optimizerD.step()
+
+
+            ############################
+            # (2) Update G network: maximize log(D(G(z)))
+            ###########################
+
+            netG.zero_grad()
+            label.fill_(real_label)  # fake labels are real for generator cost
+
+            # Since we just updated D, perform another forward pass of all-fake batch through D
+            output = netD(fake, status).view(-1)
+
+            # Calculate G's loss based on this output
+            errG = criterion(output, label)
+
+            # Calculate gradients for G
+            errG.backward()
+            D_G_z2 = output.mean().item()
+
+            # Update G
+            optimizerG.step()
 
         ############################
-        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+        # (3) Testing
         ###########################
-        ## Train with all-real batch
-        netD.zero_grad()
 
-        # Format batch
-        image = data[0].to(device)
-        status = data[1].to(device)
-        b_size = image.size(0)
-        label = torch.full((b_size,), real_label, dtype=torch.float, device=device)
+        img_list = []
+        accuracy_list = []
 
-        # Forward pass real batch through D
-        output = netD(image, status).view(-1)
+        EVAL_MOD = evaluation_model()
 
-        # Calculate loss on all-real batch
-        errD_real = criterion(output, label)
+        if noise == None:
+            noise = torch.randn(batch_size, nz, 1, 1, device=device)
+        
+        testset = GetData("test")
+        testloader = DataLoader(testset, batch_size, workers)
+        
+        with torch.no_grad():
+            for status in testloader:
+                status = status.to(device)
 
-        # Calculate gradients for D in backward pass
-        errD_real.backward()
-        D_x = output.mean().item()
+                fake = netG(noise, status).detach()
 
-        ## Train with all-fake batch
-        # Generate batch of latent vectors
-        noise = torch.randn(b_size, nz, 1, 1, device=device)
-
-        # Generate fake image batch with G
-        fake = netG(noise, status)
-        label.fill_(fake_label)
-
-        # Classify all fake batch with D
-        output = netD(fake.detach(), status).view(-1)
-
-        # Calculate D's loss on the all-fake batch
-        errD_fake = criterion(output, label)
-
-        # Calculate the gradients for this batch, accumulated (summed) with previous gradients
-        errD_fake.backward()
-        D_G_z1 = output.mean().item()
-
-        # Compute error of D as sum over the fake and the real batches
-        errD = errD_real + errD_fake
-
-        # Update D
-        optimizerD.step()
-
+                accuracy_list.append(EVAL_MOD.eval(fake, status))
+                img_list.append(make_grid(fake, nrow=8, padding=2, normalize=True).to("cpu"))
+        
+        accuracy = sum(accuracy_list) / len(accuracy_list)
 
         ############################
-        # (2) Update G network: maximize log(D(G(z)))
+        # (4) Save model and get the result
         ###########################
 
-        netG.zero_grad()
-        label.fill_(real_label)  # fake labels are real for generator cost
+        if epoch % 5 == 0:
+            torch.save(netG, "./models/G_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
+            torch.save(netD, "./models/D_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
 
-        # Since we just updated D, perform another forward pass of all-fake batch through D
-        output = netD(fake, status).view(-1)
+        # Output training stats
+        print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
+                % (epoch+1, num_epochs, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+        
+        csv_data.append(epoch+1)
+        csv_data.append(errD.item())
+        csv_data.append(errG.item())
+        csv_data.append(D_x)
+        csv_data.append(str(round(D_G_z1, 4)) + " / " + str(round(D_G_z2, 4)))
 
-        # Calculate G's loss based on this output
-        errG = criterion(output, label)
+        with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
+            # using csv.writer method from CSV package
+            write = csv.writer(f)
+            write.writerow(csv_data)
 
-        # Calculate gradients for G
-        errG.backward()
-        D_G_z2 = output.mean().item()
-
-        # Update G
-        optimizerG.step()
-
-    ############################
-    # (3) Testing
-    ###########################
-
-    img_list = []
-    accuracy_list = []
-
-    EVAL_MOD = evaluation_model()
-
-    if noise == None:
-        noise = torch.randn(batch_size, nz, 1, 1, device=device)
+        # Save Losses for plotting later
+        G_losses.append(errG.item())
+        D_losses.append(errD.item())
+        torch.cuda.empty_cache()
     
-    testset = GetData("test")
-    testloader = DataLoader(testset, batch_size, workers)
-    
-    with torch.no_grad():
-        for status in testloader:
-            status = status.to(device)
+    return G_losses, D_losses
 
-            fake = netG(noise, status).detach()
 
-            accuracy_list.append(EVAL_MOD.eval(fake, status))
-            img_list.append(make_grid(fake, nrow=8, padding=2, normalize=True).to("cpu"))
-    
-    accuracy = sum(accuracy_list) / len(accuracy_list)
+if __name__ == "__main__":
 
-    ############################
-    # (4) Save model and get the result
-    ###########################
+    manualSeed = 1
+    random.seed(manualSeed)
+    torch.manual_seed(manualSeed)
 
-    if epoch % 5 == 0:
-        torch.save(netG, "./models/G_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
-        torch.save(netD, "./models/D_epoch_" + (epoch+1) + "{:.4f}.ckpt".format(accuracy))
+    G_losses, D_losses = train()
 
-    # Output training stats
-    print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-            % (epoch+1, num_epochs, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
-    
-    csv_data.append(epoch+1)
-    csv_data.append(errD.item())
-    csv_data.append(errG.item())
-    csv_data.append(D_x)
-    csv_data.append(str(round(D_G_z1, 4)) + " / " + str(round(D_G_z2, 4)))
+    # =====================================
+    # Output the result figure
 
-    with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
-        # using csv.writer method from CSV package
-        write = csv.writer(f)
-        write.writerow(csv_data)
-
-    # Save Losses for plotting later
-    G_losses.append(errG.item())
-    D_losses.append(errD.item())
-    torch.cuda.empty_cache()
-
-# =====================================
-# Output the result figure
-
-plt.figure(figsize=(10, 6))
-x = range(len(G_losses))
-plt.ylabel("Loss")
-plt.xlabel("Epochs")
-plt.title("Training Loss Curve", fontsize=18)
-plt.plot(x, G_losses, label='G_loss')
-plt.plot(x, D_losses, label='D_loss')
-plt.legend()
-# plt.show()
-plt.savefig("./img/training_loss.png")
+    plt.figure(figsize=(10, 6))
+    x = range(len(G_losses))
+    plt.ylabel("Loss")
+    plt.xlabel("Epochs")
+    plt.title("Training Loss Curve", fontsize=18)
+    plt.plot(x, G_losses, label='G_loss')
+    plt.plot(x, D_losses, label='D_loss')
+    plt.legend()
+    # plt.show()
+    plt.savefig("./img/training_loss.png")
