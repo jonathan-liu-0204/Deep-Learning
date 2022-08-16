@@ -1,0 +1,1 @@
+Epoch,Accuracy,Loss_D,tLoss_G,D(x),D(G(z))

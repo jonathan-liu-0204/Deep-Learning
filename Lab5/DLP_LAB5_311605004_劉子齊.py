@@ -141,11 +141,15 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
     # Setup Optimizers & Criterion, etc
 
     optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
+    StepLR_D = StepLR(optimizerD, step_size=50, gamma=0.5)
     optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
+    StepLR_G = StepLR(optimizerG, step_size=50, gamma=0.5)
 
     criterion = nn.BCELoss()
 
     print("Starting Training Loop...")
+
+    highest_accuracy = 0
 
     # For each epoch
     for epoch in range(num_epochs):
@@ -222,45 +226,35 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
             # Update G
             optimizerG.step()
 
+        StepLR_D.step()
+        StepLR_G.step()
+
         ############################
         # (3) Testing
         ###########################
 
-        img_list = []
-        accuracy_list = []
+        accuracy, image_list = test(netG, fixed_noise, batch_size, nz, workers)
 
-        EVAL_MOD = evaluation_model()
-
-        if fixed_noise == None:
-            fixed_noise = torch.randn(batch_size, nz, 1, 1, device=device)
-        
-        testset = LoadData("test")
-        testloader = DataLoader(testset, batch_size, workers)
-        
-        with torch.no_grad():
-            for status in testloader:
-                status = status.to(device)
-
-                fake = netG(fixed_noise, status).detach()
-
-                accuracy_list.append(EVAL_MOD.eval(fake, status))
-                img_list.append(make_grid(fake, nrow=8, padding=2, normalize=True).to("cpu"))
-        
-        accuracy = sum(accuracy_list) / len(accuracy_list)
+        # =========================
+        for tensor_image in image_list:
+            to_image = transforms.ToPILImage()
+            image = to_image(tensor_image)
+            image = image.save("./output_images/" + str(epoch+1) + ".png")
 
         ############################
         # (4) Save model and get the result
         ###########################
 
-        if epoch % 5 == 0:
-            torch.save(netG, "./models/G_epoch_" + str(epoch+1) + "{:.4f}.ckpt".format(accuracy))
-            torch.save(netD, "./models/D_epoch_" + str(epoch+1) + "{:.4f}.ckpt".format(accuracy))
+        if accuracy > highest_accuracy:
+            torch.save(netG, "./models/G_epoch_" + str(epoch+1) + "_{:.4f}.ckpt".format(accuracy*100))
+            torch.save(netD, "./models/D_epoch_" + str(epoch+1) + "_{:.4f}.ckpt".format(accuracy*100))
 
         # Output training stats
-        print('[%d/%d]\tLoss_D: %.4f  |  Loss_G: %.4f  |  D(x): %.4f  |  D(G(z)): %.4f / %.4f'
-                % (epoch+1, num_epochs, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+        print('[%d/%d]\tAccuracy: %.4f  |  Loss_D: %.4f  |  Loss_G: %.4f  |  D(x): %.4f  |  D(G(z)): %.4f / %.4f'
+                % ( epoch+1, num_epochs, accuracy*100, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
         
         csv_data.append(epoch+1)
+        csv_data.append(accuracy*100)
         csv_data.append(errD.item())
         csv_data.append(errG.item())
         csv_data.append(D_x)
@@ -277,6 +271,32 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
         torch.cuda.empty_cache()
     
     return G_losses, D_losses
+
+
+def test(netG, fixed_noise=None, batch_size=128, nz=100, workers=2):
+    img_list = []
+    accuracy_list = []
+
+    EVAL_MOD = evaluation_model()
+
+    if fixed_noise == None:
+        fixed_noise = torch.randn(batch_size, nz, 1, 1, device=device)
+    
+    testset = LoadData("test")
+    testloader = DataLoader(testset, batch_size, workers)
+    
+    with torch.no_grad():
+        for status in testloader:
+            status = status.to(device)
+
+            fake = netG(fixed_noise, status).detach()
+
+            accuracy_list.append(EVAL_MOD.eval(fake, status))
+            img_list.append(make_grid(fake, nrow=8, padding=2, normalize=True).to("cpu"))
+    
+    accuracy = sum(accuracy_list) / len(accuracy_list)
+
+    return accuracy, img_list
 
 
 if __name__ == "__main__":
@@ -348,7 +368,7 @@ if __name__ == "__main__":
     print(netD)
 
     #  Write the labels of the csv for plotting
-    headerList = ['Epoch', 'Loss_D', 'tLoss_G', 'D(x)', 'D(G(z))']
+    headerList = ['Epoch', 'Accuracy', 'Loss_D', 'tLoss_G', 'D(x)', 'D(G(z))']
 
     with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
         write = csv.writer(f)
