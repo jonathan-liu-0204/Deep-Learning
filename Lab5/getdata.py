@@ -7,7 +7,7 @@ import torchvision.transforms as transforms
 
 
 def get_data(mode):
-    assert mode == 'train' or mode == 'test' or mode == 'my_test'
+    assert mode == 'train' or mode == 'test' or mode == 'new_test'
     data = json.load(open('./data/'+mode+'.json', 'r'))
     if mode == 'train':
         data = [i for i in data.items()]

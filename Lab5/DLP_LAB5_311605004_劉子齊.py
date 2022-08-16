@@ -150,6 +150,7 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
     print("Starting Training Loop...")
 
     highest_accuracy = 0
+    highest_epoch = -100
 
     # For each epoch
     for epoch in range(num_epochs):
@@ -233,7 +234,7 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
         # (3) Testing
         ###########################
 
-        accuracy, image_list = test(netG, fixed_noise, batch_size, nz, workers)
+        accuracy, image_list = test(netG, fixed_noise, batch_size, nz, workers, "test")
 
         # =========================
         for tensor_image in image_list:
@@ -248,9 +249,11 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
         if accuracy > highest_accuracy:
             torch.save(netG, "./models/G_epoch_" + str(epoch+1) + "_{:.4f}.ckpt".format(accuracy*100))
             torch.save(netD, "./models/D_epoch_" + str(epoch+1) + "_{:.4f}.ckpt".format(accuracy*100))
+            highest_accuracy = accuracy
+            highest_epoch = epoch
 
         # Output training stats
-        print('[%d/%d]\tAccuracy: %.4f  |  Loss_D: %.4f  |  Loss_G: %.4f  |  D(x): %.4f  |  D(G(z)): %.4f / %.4f'
+        print('[%3d/%3d]  Accuracy: %.4f  |  Loss_D: %.4f  |  Loss_G: %.4f  |  D(x): %.4f  |  D(G(z)): %.4f / %.4f'
                 % ( epoch+1, num_epochs, accuracy*100, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
         
         csv_data.append(epoch+1)
@@ -270,10 +273,10 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
         D_losses.append(errD.item())
         torch.cuda.empty_cache()
     
-    return G_losses, D_losses
+    return G_losses, D_losses, highest_accuracy, highest_epoch
 
 
-def test(netG, fixed_noise=None, batch_size=128, nz=100, workers=2):
+def test(netG, fixed_noise=None, batch_size=32, nz=100, workers=2, mode="test"):
     img_list = []
     accuracy_list = []
 
@@ -282,7 +285,7 @@ def test(netG, fixed_noise=None, batch_size=128, nz=100, workers=2):
     if fixed_noise == None:
         fixed_noise = torch.randn(batch_size, nz, 1, 1, device=device)
     
-    testset = LoadData("test")
+    testset = LoadData(mode)
     testloader = DataLoader(testset, batch_size, workers)
     
     with torch.no_grad():
@@ -330,7 +333,7 @@ if __name__ == "__main__":
     ndf = 64
 
     # Number of training epochs
-    num_epochs = 100
+    num_epochs = 3
 
     # Learning rate for optimizers
     lr = 0.0002
@@ -374,7 +377,7 @@ if __name__ == "__main__":
         write = csv.writer(f)
         write.writerow(headerList)
 
-    G_losses, D_losses = train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz)
+    G_losses, D_losses, highest_accuracy, highest_epoch = train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz)
 
     # =====================================
     # Output the result figure
@@ -388,4 +391,22 @@ if __name__ == "__main__":
     plt.plot(x, D_losses, label='D_loss')
     plt.legend()
     # plt.show()
-    plt.savefig("./img/training_loss.png")
+    plt.savefig("./plot/training_loss.png")
+
+
+    test_netG = torch.load("./models/G_epoch_" + str(highest_epoch+1) + "_{:.4f}.ckpt".format(highest_accuracy*100))
+    print("The Best Epoch: ", (highest_epoch+1), "  Accuracy: ", (highest_accuracy*100))
+
+    acc1, imgs1 = test(netG, None, 32, nz, workers=2, mode="test")
+    for tensor_image in imgs1:
+        to_image = transforms.ToPILImage()
+        image = to_image(tensor_image)
+        image = image.save("./output_images/Result__TEST.png")
+    print ("Accuracy of TEST: %.4f" % (acc1*100))
+
+    acc2, imgs2 = test(netG, None, 32, nz, workers=2, mode="new_test")
+    for tensor_image in imgs2:
+        to_image = transforms.ToPILImage()
+        image = to_image(tensor_image)
+        image = image.save("./output_images/Result_of_NEW_TEST.png")
+    print ("Accuracy of NEW_TEST: %.4f" % (acc2*100))
