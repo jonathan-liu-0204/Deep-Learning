@@ -261,7 +261,8 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
         csv_data.append(errD.item())
         csv_data.append(errG.item())
         csv_data.append(D_x)
-        csv_data.append(str(round(D_G_z1, 4)) + " / " + str(round(D_G_z2, 4)))
+        csv_data.append(D_G_z1)
+        csv_data.append(D_G_z2)
 
         with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
             # using csv.writer method from CSV package
@@ -373,7 +374,7 @@ if __name__ == "__main__":
     print(netD)
 
     #  Write the labels of the csv for plotting
-    headerList = ['Epoch', 'Accuracy', 'Loss_D', 'tLoss_G', 'D(x)', 'D(G(z))']
+    headerList = ['Epoch', 'Accuracy', 'Loss_D', 'tLoss_G', 'D(x)', 'D_G_z1', 'D_G_z2']
 
     with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
         write = csv.writer(f)
