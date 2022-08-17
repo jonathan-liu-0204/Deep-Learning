@@ -121,7 +121,7 @@ class Discriminator(nn.Module):
 # =====================================
 # Start Training
 
-def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
+def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, beta1, nz):
     G_losses = []
     D_losses = []
 
@@ -140,9 +140,9 @@ def train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz):
     # =====================================
     # Setup Optimizers & Criterion, etc
 
-    optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
+    optimizerD = optim.Adam(netD.parameters(), lr=DIS_lr, betas=(beta1, 0.999))
     StepLR_D = StepLR(optimizerD, step_size=50, gamma=0.5)
-    optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=GEN_lr, betas=(beta1, 0.999))
     StepLR_G = StepLR(optimizerG, step_size=50, gamma=0.5)
 
     criterion = nn.BCELoss()
@@ -336,7 +336,9 @@ if __name__ == "__main__":
     num_epochs = 500
 
     # Learning rate for optimizers
-    lr = 0.0002
+    # lr = 0.0002
+    GEN_lr = 0.0002
+    DIS_lr = 0.0001
 
     # Beta1 hyperparam for Adam optimizers
     beta1 = 0.5
@@ -377,7 +379,7 @@ if __name__ == "__main__":
         write = csv.writer(f)
         write.writerow(headerList)
 
-    G_losses, D_losses, highest_accuracy, highest_epoch = train(netG, netD, device, num_epochs, lr, batch_size, workers, beta1, nz)
+    G_losses, D_losses, highest_accuracy, highest_epoch = train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, beta1, nz)
 
     # =====================================
     # Output the result figure
