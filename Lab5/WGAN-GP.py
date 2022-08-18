@@ -105,7 +105,7 @@ class Discriminator(nn.Module):
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             # nn.Sigmoid()
-            nn.Linear(1, 1, bias=False)
+            # nn.Linear(1, 1, bias=False)
         )
 
     def forward(self, input, condition):
@@ -193,10 +193,10 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
 
     # optimizerD = optim.Adam(netD.parameters(), lr=DIS_lr, betas=(beta1, 0.999))
     optimizerD = optim.RMSprop(netD.parameters(), lr=DIS_lr, alpha=0.9)
-    StepLR_D = StepLR(optimizerD, step_size=50, gamma=0.5)
+    # StepLR_D = StepLR(optimizerD, step_size=50, gamma=0.5)
     # optimizerG = optim.Adam(netG.parameters(), lr=GEN_lr, betas=(beta1, 0.999))
     optimizerG = optim.RMSprop(netG.parameters(), lr=GEN_lr, alpha=0.9)
-    StepLR_G = StepLR(optimizerG, step_size=50, gamma=0.5)
+    # StepLR_G = StepLR(optimizerG, step_size=50, gamma=0.5)
 
     # criterion = nn.BCELoss()
 
@@ -225,7 +225,8 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
             
             real_out = netD(image, status)
             d_real = real_out.mean()
-            d_real.backward()
+            minus_one = ((-1) * torch.tensor(1.0)).to(device)
+            d_real.backward(minus_one)
 
             noise = torch.randn(b_size, nz, 1, 1, device=device)
             x_fake = netG(noise, status)
@@ -250,37 +251,37 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
             # (2) Update G network: maximize log(D(G(z)))
             ###########################
 
-            if i % 5 == 0:
-                netG.zero_grad()
-                # label.fill_(real_label)  # fake labels are real for generator cost
+            netG.zero_grad()
+            # label.fill_(real_label)  # fake labels are real for generator cost
 
-                noise = torch.randn(b_size, nz, 1, 1, device=device)
+            noise = torch.randn(b_size, nz, 1, 1, device=device)
 
-                x_fake = netG(noise, status)
-                fake_out = netD(x_fake, status)
-                g_fake = fake_out.mean()
-                g_fake.backward()
+            x_fake = netG(noise, status)
+            fake_out = netD(x_fake, status)
+            g_fake = fake_out.mean()
+            minus_one = ((-1) * torch.tensor(1.0)).to(device)
+            g_fake.backward(minus_one)
 
-                g_cost = -g_fake
+            g_cost = -g_fake
 
 
-                # # Since we just updated D, perform another forward pass of all-fake batch through D
-                # output = netD(fixed_noise, status).view(-1)
+            # # Since we just updated D, perform another forward pass of all-fake batch through D
+            # output = netD(fixed_noise, status).view(-1)
 
-                # # Calculate G's loss based on this output
-                # errG = criterion(output, label)
+            # # Calculate G's loss based on this output
+            # errG = criterion(output, label)
 
-                # # Calculate gradients for G
-                # errG.backward()
-                # D_G_z2 = output.mean().item()
+            # # Calculate gradients for G
+            # errG.backward()
+            # D_G_z2 = output.mean().item()
 
-                # Update G
-                # optimizerG.zero_grad()
-                # g_loss.backward()
-                optimizerG.step()
+            # Update G
+            # optimizerG.zero_grad()
+            # g_loss.backward()
+            optimizerG.step()
 
-        StepLR_D.step()
-        StepLR_G.step()
+        # StepLR_D.step()
+        # StepLR_G.step()
 
         ############################
         # (3) Testing
@@ -305,8 +306,8 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
             highest_epoch = epoch
 
         # Output training stats
-        print('[%3d/%3d]  Accuracy: %.4f  |  Loss_D: %.4f  |  Loss_G: %.4f'
-                % ( epoch+1, num_epochs, accuracy*100, d_cost.item(), g_cost.item()))
+        print('[%3d/%3d]  Accuracy: %07.4f  |  D_cost: %07.4f  |  G_cost: %07.4f'
+                % (epoch+1, num_epochs, accuracy*100, d_cost.item(), g_cost.item()))
         # print('[%3d/%3d]  Accuracy: %.4f  |  Loss_D: %.4f  |  Loss_G: %.4f  |  D(x): %.4f  |  D(G(z)): %.4f / %.4f'
         #         % ( epoch+1, num_epochs, accuracy*100, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
         
@@ -314,6 +315,8 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
         csv_data.append(accuracy*100)
         csv_data.append(d_cost.item())
         csv_data.append(g_cost.item())
+        csv_data.append(wasserstein_D.item())
+        
         # csv_data.append(D_x)
         # csv_data.append(D_G_z1)
         # csv_data.append(D_G_z2)
@@ -428,7 +431,7 @@ if __name__ == "__main__":
     print(netD)
 
     #  Write the labels of the csv for plotting
-    headerList = ['Epoch', 'Accuracy', 'D_cost', 'G_cost']
+    headerList = ['Epoch', 'Accuracy', 'D_cost', 'G_cost', 'Wasserstein_D']
 
     with open('./epoch_curve_plotting_data.csv', 'a+', newline ='') as f:
         write = csv.writer(f)
