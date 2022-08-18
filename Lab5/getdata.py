@@ -23,7 +23,8 @@ class LoadData():
         self.data = get_data(mode)
 
         self.object_list = json.load(open('./data/objects.json', 'r'))
-        self.transformation = transforms.Compose([transforms.Resize([64, 64]),
+        self.transformation = transforms.Compose([transforms.Resize(64),
+                                                transforms.CenterCrop(64),
                                                 transforms.ToTensor(),
                                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     
