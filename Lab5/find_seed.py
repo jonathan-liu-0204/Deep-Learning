@@ -185,7 +185,7 @@ if __name__ == "__main__":
         write = csv.writer(f)
         write.writerow(headerList)
 
-    for seed_num in range(1, 500):
+    for seed_num in range(1, 10000):
 
         manualSeed = seed_num
         random.seed(manualSeed)
@@ -193,20 +193,24 @@ if __name__ == "__main__":
 
         print("Seed_num: ", seed_num)
 
-        test_netG = torch.load("./G_epoch_454_58.3333.ckpt")
+        test_netG = torch.load("./G_epoch_298_61.1111.ckpt")
 
         acc1, imgs1 = test(test_netG, None, 32, nz, workers=2, mode="test")
-        for tensor_image in imgs1:
-            to_image = transforms.ToPILImage()
-            image = to_image(tensor_image)
-            image = image.save("./output_images/Result_TEST_" + str(seed_num) + ".png")
+
+        if(acc1 > 0.6):
+            for tensor_image in imgs1:
+                to_image = transforms.ToPILImage()
+                image = to_image(tensor_image)
+                image = image.save("./output_images/Result_TEST_" + str(seed_num) + ".png")
         print ("Accuracy of TEST: %.4f" % (acc1*100))
 
         acc2, imgs2 = test(test_netG, None, 32, nz, workers=2, mode="new_test")
-        for tensor_image in imgs2:
-            to_image = transforms.ToPILImage()
-            image = to_image(tensor_image)
-            image = image.save("./output_images/Result_NEW_TEST_" + str(seed_num) + ".png")
+
+        if(acc2 > 0.6):
+            for tensor_image in imgs2:
+                to_image = transforms.ToPILImage()
+                image = to_image(tensor_image)
+                image = image.save("./output_images/Result_NEW_TEST_" + str(seed_num) + ".png")
         print ("Accuracy of NEW_TEST: %.4f" % (acc2*100))
 
         print()

@@ -49,19 +49,19 @@ class Generator(nn.Module):
         self.main = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d(nz+24, ngf * 8, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(ngf * 8),
+            # nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 4),
+            # nn.BatchNorm2d(ngf * 4),
             nn.ReLU(True),
             # state size. (ngf*4) x 8 x 8
             nn.ConvTranspose2d( ngf * 4, ngf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
+            # nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
             # state size. (ngf*2) x 16 x 16
             nn.ConvTranspose2d( ngf * 2, ngf, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
+            # nn.BatchNorm2d(ngf),
             nn.ReLU(True),
             # state size. (ngf) x 32 x 32
             nn.ConvTranspose2d( ngf, nc, 4, 2, 1, bias=False),
@@ -92,15 +92,15 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-            # nn.BatchNorm2d(ndf * 2),
+            nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
             nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-            # nn.BatchNorm2d(ndf * 4),
+            nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*4) x 8 x 8
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
-            # nn.BatchNorm2d(ndf * 8),
+            nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
@@ -163,7 +163,7 @@ def compute_gradient_penalty(D, real_samples, cond,  fake_samples):
     gradients = gradients.view(gradients.size(0), -1)
     # gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
 
-    LAMBDA = 19
+    LAMBDA = 10
 
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
 
@@ -191,10 +191,10 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
     # =====================================
     # Setup Optimizers & Criterion, etc
 
-    optimizerD = optim.Adam(netD.parameters(), lr=DIS_lr, betas=(beta1, 0.999))
+    optimizerD = optim.Adam(netD.parameters(), lr=DIS_lr, betas=(beta1, 0.9))
     # optimizerD = optim.RMSprop(netD.parameters(), lr=DIS_lr, alpha=0.9)
     # StepLR_D = StepLR(optimizerD, step_size=50, gamma=0.5)
-    optimizerG = optim.Adam(netG.parameters(), lr=GEN_lr, betas=(beta1, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=GEN_lr, betas=(beta1, 0.9))
     # optimizerG = optim.RMSprop(netG.parameters(), lr=GEN_lr, alpha=0.9)
     # StepLR_G = StepLR(optimizerG, step_size=50, gamma=0.5)
 
@@ -395,11 +395,11 @@ if __name__ == "__main__":
 
     # Learning rate for optimizers
     # lr = 0.0002
-    GEN_lr = 0.0002
-    DIS_lr = 0.0002
+    GEN_lr = 0.0001
+    DIS_lr = 0.0001
 
     # Beta1 hyperparam for Adam optimizers
-    beta1 = 0.5
+    beta1 = 0
 
     # Number of GPUs available. Use 0 for CPU mode.
     ngpu = 1
@@ -454,19 +454,67 @@ if __name__ == "__main__":
     plt.savefig("./plot/training_loss.png")
 
 
-    test_netG = torch.load("./models/G_epoch_" + str(highest_epoch+1) + "_{:.4f}.ckpt".format(highest_accuracy*100))
-    print("The Best Epoch: ", (highest_epoch+1), "  Accuracy: ", (highest_accuracy*100))
+    # test_netG = torch.load("./models/G_epoch_" + str(highest_epoch+1) + "_{:.4f}.ckpt".format(highest_accuracy*100))
+    # print("The Best Epoch: ", (highest_epoch+1), "  Accuracy: ", (highest_accuracy*100))
 
-    acc1, imgs1 = test(netG, None, 32, nz, workers=2, mode="test")
-    for tensor_image in imgs1:
-        to_image = transforms.ToPILImage()
-        image = to_image(tensor_image)
-        image = image.save("./output_images/Result__TEST.png")
-    print ("Accuracy of TEST: %.4f" % (acc1*100))
+    # acc1, imgs1 = test(netG, None, 32, nz, workers=2, mode="test")
+    # for tensor_image in imgs1:
+    #     to_image = transforms.ToPILImage()
+    #     image = to_image(tensor_image)
+    #     image = image.save("./output_images/Result__TEST.png")
+    # print ("Accuracy of TEST: %.4f" % (acc1*100))
 
-    acc2, imgs2 = test(netG, None, 32, nz, workers=2, mode="new_test")
-    for tensor_image in imgs2:
-        to_image = transforms.ToPILImage()
-        image = to_image(tensor_image)
-        image = image.save("./output_images/Result_of_NEW_TEST.png")
-    print ("Accuracy of NEW_TEST: %.4f" % (acc2*100))
+    # acc2, imgs2 = test(netG, None, 32, nz, workers=2, mode="new_test")
+    # for tensor_image in imgs2:
+    #     to_image = transforms.ToPILImage()
+    #     image = to_image(tensor_image)
+    #     image = image.save("./output_images/Result_of_NEW_TEST.png")
+    # print ("Accuracy of NEW_TEST: %.4f" % (acc2*100))
+
+    #  Write the labels of the csv for plotting
+    headerList = ['Seed_Num', 'Test Acc', 'New_Test Acc']
+
+    with open('./seed_record.csv', 'a+', newline ='') as f:
+        write = csv.writer(f)
+        write.writerow(headerList)
+
+    for seed_num in range(1, 10000):
+
+        manualSeed = seed_num
+        random.seed(manualSeed)
+        torch.manual_seed(manualSeed)
+
+        print("Seed_num: ", seed_num)
+
+        test_netG = torch.load("./models/G_epoch_" + str(highest_epoch+1) + "_{:.4f}.ckpt".format(highest_accuracy*100))
+
+        acc1, imgs1 = test(test_netG, None, 32, nz, workers=2, mode="test")
+
+        for tensor_image in imgs1:
+            to_image = transforms.ToPILImage()
+            image = to_image(tensor_image)
+            image = image.save("./test_images/Result_TEST_" + str(seed_num) + ".png")
+        # print ("Accuracy of TEST: %.4f" % (acc1*100))
+
+        acc2, imgs2 = test(test_netG, None, 32, nz, workers=2, mode="new_test")
+
+        for tensor_image in imgs2:
+            to_image = transforms.ToPILImage()
+            image = to_image(tensor_image)
+            image = image.save("./test_images/Result_NEW_TEST_" + str(seed_num) + ".png")
+                
+        # print ("Accuracy of NEW_TEST: %.4f" % (acc2*100))
+
+        # print()
+        # print("====================")
+        # print()
+
+        seed_record = []
+        seed_record.append(seed_num)
+        seed_record.append(acc1)
+        seed_record.append(acc2)
+
+        with open('./seed_record.csv', 'a+', newline ='') as f:
+            # using csv.writer method from CSV package
+            write = csv.writer(f)
+            write.writerow(seed_record)
