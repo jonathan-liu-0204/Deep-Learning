@@ -92,15 +92,15 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
+            # nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
             nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 4),
+            # nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*4) x 8 x 8
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 8),
+            # nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
@@ -226,20 +226,22 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
             real_out = netD(image, status)
             d_real = real_out.mean()
             minus_one = ((-1) * torch.tensor(1.0)).to(device)
-            d_real.backward(minus_one)
+            # d_real.backward(minus_one)
 
             noise = torch.randn(b_size, nz, 1, 1, device=device)
             x_fake = netG(noise, status)
             fake_out = netD(x_fake.detach(), status)
             d_fake = fake_out.mean()
             one = torch.tensor(1.0).to(device)
-            d_fake.backward(one)
+            # d_fake.backward(one)
 
             gradient_penalty = compute_gradient_penalty(netD, image, status,  x_fake)
-            gradient_penalty.backward()
+            # gradient_penalty.backward()
 
             # d_loss = -real_out.mean() + fake_out.mean() + gradient_penalty * 10
-            d_cost = d_fake - d_real + gradient_penalty
+            d_cost = ((d_fake - d_real) / 2) + gradient_penalty
+            d_cost.backward()
+
             wasserstein_D  = d_fake - d_real
 
             # optimizerD.zero_grad()
@@ -260,9 +262,10 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
             fake_out = netD(x_fake, status)
             g_fake = fake_out.mean()
             minus_one = ((-1) * torch.tensor(1.0)).to(device)
-            g_fake.backward(minus_one)
+            # g_fake.backward(minus_one)
 
             g_cost = -g_fake
+            g_cost.backward()
 
 
             # # Since we just updated D, perform another forward pass of all-fake batch through D
@@ -395,8 +398,8 @@ if __name__ == "__main__":
 
     # Learning rate for optimizers
     # lr = 0.0002
-    GEN_lr = 0.0001
-    DIS_lr = 0.0001
+    GEN_lr = 0.0002
+    DIS_lr = 0.0002
 
     # Beta1 hyperparam for Adam optimizers
     beta1 = 0
@@ -484,7 +487,7 @@ if __name__ == "__main__":
         random.seed(manualSeed)
         torch.manual_seed(manualSeed)
 
-        print("Seed_num: ", seed_num)
+        # print("Seed_num: ", seed_num)
 
         test_netG = torch.load("./models/G_epoch_" + str(highest_epoch+1) + "_{:.4f}.ckpt".format(highest_accuracy*100))
 
