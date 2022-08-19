@@ -350,7 +350,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
     print("Using Device: ", device)
 
-    manualSeed = 87
+    manualSeed = 10
     random.seed(manualSeed)
     torch.manual_seed(manualSeed)
 
