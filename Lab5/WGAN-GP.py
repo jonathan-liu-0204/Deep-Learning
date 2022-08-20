@@ -191,11 +191,11 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
     # =====================================
     # Setup Optimizers & Criterion, etc
 
-    optimizerD = optim.Adam(netD.parameters(), lr=DIS_lr, betas=(beta1, 0.9))
-    # optimizerD = optim.RMSprop(netD.parameters(), lr=DIS_lr, alpha=0.9)
+    # optimizerD = optim.Adam(netD.parameters(), lr=DIS_lr, betas=(beta1, 0.9))
+    optimizerD = optim.RMSprop(netD.parameters(), lr=DIS_lr, alpha=0.9)
     # StepLR_D = StepLR(optimizerD, step_size=50, gamma=0.5)
-    optimizerG = optim.Adam(netG.parameters(), lr=GEN_lr, betas=(beta1, 0.9))
-    # optimizerG = optim.RMSprop(netG.parameters(), lr=GEN_lr, alpha=0.9)
+    # optimizerG = optim.Adam(netG.parameters(), lr=GEN_lr, betas=(beta1, 0.9))
+    optimizerG = optim.RMSprop(netG.parameters(), lr=GEN_lr, alpha=0.9)
     # StepLR_G = StepLR(optimizerG, step_size=50, gamma=0.5)
 
     # criterion = nn.BCELoss()
