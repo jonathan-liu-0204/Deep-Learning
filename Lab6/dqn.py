@@ -8,6 +8,7 @@ import gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -35,11 +36,29 @@ class Net(nn.Module):
     def __init__(self, state_dim=8, action_dim=4, hidden_dim=32):
         super().__init__()
         ## TODO ##
-        raise NotImplementedError
+
+        self.relu = nn.ReLU()
+
+        self.fc1 = nn.Linear(state_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, action_dim)
+
+        # raise NotImplementedError
 
     def forward(self, x):
         ## TODO ##
-        raise NotImplementedError
+
+        x = torch.tensor(x, device=self.device)
+
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        x = self.relu(x)
+        x = self.fc3(x)
+
+        return x
+
+        # raise NotImplementedError
 
 
 class DQN:
