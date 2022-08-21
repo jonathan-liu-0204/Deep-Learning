@@ -69,7 +69,10 @@ class DQN:
         self._target_net.load_state_dict(self._behavior_net.state_dict())
         ## TODO ##
         # self._optimizer = ?
-        raise NotImplementedError
+
+        self._optimizer = optim.Adam(self._behavior_net.parameters(), lr=args.lr)
+
+        # raise NotImplementedError
         # memory
         self._memory = ReplayMemory(capacity=args.capacity)
 
@@ -83,7 +86,16 @@ class DQN:
     def select_action(self, state, epsilon, action_space):
         '''epsilon-greedy based on behavior network'''
          ## TODO ##
-        raise NotImplementedError
+
+        if random.random() < epsilon:
+            return random.randint(0, 3)
+        # select action with max value
+        else:
+            values = self._behavior_net(state)
+            _, action = torch.max(values, 0)
+            return action.item()
+                
+        # raise NotImplementedError
 
     def append(self, state, action, reward, next_state, done):
         self._memory.append(state, [action], [reward / 10], next_state,
@@ -107,7 +119,18 @@ class DQN:
         #    q_target = ?
         # criterion = ?
         # loss = criterion(q_value, q_target)
-        raise NotImplementedError
+
+        q_value = self._behavior_net(state).gather(1, action.long())
+
+        with torch.no_grad():
+           q_next = self._target_net(next_state).detach().max(1)[0].unsqueeze(1)
+           q_target = reward + gamma * q_next * (1 - done)
+
+        criterion = nn.MSELoss()
+        loss = criterion(q_value, q_target)
+
+        # raise NotImplementedError
+
         # optimize
         self._optimizer.zero_grad()
         loss.backward()
@@ -117,7 +140,13 @@ class DQN:
     def _update_target_network(self):
         '''update target network by copying from behavior network'''
         ## TODO ##
-        raise NotImplementedError
+
+        tau = 0.001
+
+        for target_param, behavior_param in zip(self._target_net.parameters(), self._behavior_net.parameters()):
+            target_param.data.copy_(tau * behavior_param.data + (1.0 - tau) * target_param.data)
+
+        # raise NotImplementedError
 
     def save(self, model_path, checkpoint=False):
         if checkpoint:
@@ -194,8 +223,25 @@ def test(args, env, agent, writer):
         #     if done:
         #         writer.add_scalar('Test/Episode Reward', total_reward, n_episode)
         #         ...
-        raise NotImplementedError
-    print('Average Reward', np.mean(rewards))
+
+        with torch.no_grad():
+            for t in itertools.count(start=1):
+
+                action = agent.select_action(state, epsilon, action_space)
+                epsilon = max(epsilon * args.eps_decay, args.eps_min)
+                next_state, reward, done, _ = env.step(action)
+
+                state = next_state
+                total_reward += reward
+
+                if done:
+                    writer.add_scalar('Test/Episode Reward', total_reward, n_episode)
+                    rewards.append(total_reward)
+                    break
+
+        # raise NotImplementedError
+
+    print('Average Reward: ', np.mean(rewards))
     env.close()
 
 

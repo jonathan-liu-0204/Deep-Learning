@@ -291,7 +291,7 @@ def test(args, env, agent, writer):
         #         ...
 
         with torch.no_grad():
-            for i in itertools.count(start=1):
+            for t in itertools.count(start=1):
 
                 action = agent.select_action(state, noise=False)
                 next_state, reward, done, _ = env.step(action)
