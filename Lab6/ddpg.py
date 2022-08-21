@@ -289,8 +289,24 @@ def test(args, env, agent, writer):
         #     if done:
         #         writer.add_scalar('Test/Episode Reward', total_reward, n_episode)
         #         ...
-        raise NotImplementedError
-    print('Average Reward', np.mean(rewards))
+
+        with torch.no_grad():
+            for i in itertools.count(start=1):
+
+                action = agent.select_action(state, noise=False)
+                next_state, reward, done, _ = env.step(action)
+                
+                state = next_state
+                total_reward += reward
+
+                if done:
+                    writer.add_scalar('Test/Episode Reward', total_reward, n_episode)
+                    rewards.append(total_reward)
+                    break
+
+        # raise NotImplementedError
+        
+    print('Average Reward: ', np.mean(rewards))
     env.close()
 
 
