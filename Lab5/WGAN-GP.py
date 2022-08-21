@@ -399,7 +399,7 @@ if __name__ == "__main__":
     # Learning rate for optimizers
     # lr = 0.0002
     GEN_lr = 0.0002
-    DIS_lr = 0.0001
+    DIS_lr = 0.00005
 
     # Beta1 hyperparam for Adam optimizers
     beta1 = 0
