@@ -220,71 +220,39 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
             status = data[1].to(device)
             b_size = image.size(0)
             
-            # print("b_size: ", image.size())
-            # print("status size: ", status.size())
-            
             real_out = netD(image, status)
             d_real = real_out.mean()
-            minus_one = ((-1) * torch.tensor(1.0)).to(device)
-            # d_real.backward(minus_one)
 
             noise = torch.randn(b_size, nz, 1, 1, device=device)
             x_fake = netG(noise, status)
             fake_out = netD(x_fake.detach(), status)
             d_fake = fake_out.mean()
-            one = torch.tensor(1.0).to(device)
-            # d_fake.backward(one)
 
             gradient_penalty = compute_gradient_penalty(netD, image, status,  x_fake)
-            # gradient_penalty.backward()
 
-            # d_loss = -real_out.mean() + fake_out.mean() + gradient_penalty * 10
             d_cost = ((d_fake - d_real) / 2) + gradient_penalty
             d_cost.backward()
 
             wasserstein_D  = d_fake - d_real
 
-            # optimizerD.zero_grad()
-            # d_loss.backward()
             optimizerD.step()
-
 
             ############################
             # (2) Update G network: maximize log(D(G(z)))
             ###########################
 
             netG.zero_grad()
-            # label.fill_(real_label)  # fake labels are real for generator cost
 
             noise = torch.randn(b_size, nz, 1, 1, device=device)
 
             x_fake = netG(noise, status)
             fake_out = netD(x_fake, status)
             g_fake = fake_out.mean()
-            minus_one = ((-1) * torch.tensor(1.0)).to(device)
-            # g_fake.backward(minus_one)
 
             g_cost = -g_fake
             g_cost.backward()
 
-
-            # # Since we just updated D, perform another forward pass of all-fake batch through D
-            # output = netD(fixed_noise, status).view(-1)
-
-            # # Calculate G's loss based on this output
-            # errG = criterion(output, label)
-
-            # # Calculate gradients for G
-            # errG.backward()
-            # D_G_z2 = output.mean().item()
-
-            # Update G
-            # optimizerG.zero_grad()
-            # g_loss.backward()
             optimizerG.step()
-
-        # StepLR_D.step()
-        # StepLR_G.step()
 
         ############################
         # (3) Testing
@@ -311,8 +279,6 @@ def train(netG, netD, device, num_epochs, GEN_lr, DIS_lr, batch_size, workers, b
         # Output training stats
         print('[%3d/%3d]  Accuracy: %07.4f  |  D_cost: %07.4f  |  G_cost: %07.4f'
                 % (epoch+1, num_epochs, accuracy*100, d_cost.item(), g_cost.item()))
-        # print('[%3d/%3d]  Accuracy: %.4f  |  Loss_D: %.4f  |  Loss_G: %.4f  |  D(x): %.4f  |  D(G(z)): %.4f / %.4f'
-        #         % ( epoch+1, num_epochs, accuracy*100, errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
         
         csv_data.append(epoch+1)
         csv_data.append(accuracy*100)
