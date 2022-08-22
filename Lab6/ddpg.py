@@ -37,6 +37,11 @@ class ReplayMemory:
     def sample(self, batch_size, device):
         '''sample a batch of transition tensors'''
         ## TODO ##
+
+        transitions = random.sample(self.buffer, batch_size)
+
+        return (torch.tensor(x, dtype=torch.float, device=device) for x in zip(*transitions))
+
         raise NotImplementedError
 
 
@@ -313,7 +318,7 @@ def test(args, env, agent, writer):
 def main():
     ## arguments ##
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-d', '--device', default='cuda')
+    parser.add_argument('-d', '--device', default='cuda:0')
     parser.add_argument('-m', '--model', default='ddpg.pth')
     parser.add_argument('--logdir', default='log/ddpg')
     # train

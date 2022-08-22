@@ -37,7 +37,7 @@ class Net(nn.Module):
         super().__init__()
         ## TODO ##
 
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
 
         self.fc1 = nn.Linear(state_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
@@ -48,7 +48,7 @@ class Net(nn.Module):
     def forward(self, x):
         ## TODO ##
 
-        x = torch.tensor(x, device=self.device)
+        x = torch.tensor(x, device="cuda:0")
 
         x = self.fc1(x)
         x = self.relu(x)
@@ -229,6 +229,7 @@ def test(args, env, agent, writer):
 
                 action = agent.select_action(state, epsilon, action_space)
                 epsilon = max(epsilon * args.eps_decay, args.eps_min)
+
                 next_state, reward, done, _ = env.step(action)
 
                 state = next_state
@@ -248,7 +249,7 @@ def test(args, env, agent, writer):
 def main():
     ## arguments ##
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-d', '--device', default='cuda')
+    parser.add_argument('-d', '--device', default='cuda:0')
     parser.add_argument('-m', '--model', default='dqn.pth')
     parser.add_argument('--logdir', default='log/dqn')
     # train
@@ -261,7 +262,7 @@ def main():
     parser.add_argument('--eps_min', default=.01, type=float)
     parser.add_argument('--gamma', default=.99, type=float)
     parser.add_argument('--freq', default=4, type=int)
-    parser.add_argument('--target_freq', default=1000, type=int)
+    parser.add_argument('--target_freq', default=4, type=int)
     # test
     parser.add_argument('--test_only', action='store_true')
     parser.add_argument('--render', action='store_true')
