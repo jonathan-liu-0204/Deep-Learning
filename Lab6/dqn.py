@@ -207,8 +207,7 @@ def train(args, env, agent, writer):
                                   total_steps)
                 print(
                     'Step: {}\tEpisode: {}\tLength: {:3d}\tTotal reward: {:.2f}\tEwma reward: {:.2f}\tEpsilon: {:.3f}'
-                    .format(total_steps, episode, t, total_reward, ewma_reward,
-                            epsilon))
+                    .format(total_steps, episode, t, total_reward, ewma_reward, epsilon))
                 break
 
         reward_queue_sum = reward_queue_sum + total_reward
@@ -271,7 +270,7 @@ def main():
     parser.add_argument('--logdir', default='log/dqn')
     # train
     parser.add_argument('--warmup', default=10000, type=int)
-    parser.add_argument('--episode', default=1200, type=int)
+    parser.add_argument('--episode', default=1500, type=int)
     parser.add_argument('--capacity', default=10000, type=int)
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--lr', default=.0005, type=float)
