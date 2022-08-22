@@ -3,6 +3,7 @@ from collections import deque
 import itertools
 import random
 import time
+import queue
 
 import gym
 import numpy as np
@@ -174,6 +175,10 @@ def train(args, env, agent, writer):
     action_space = env.action_space
     total_steps, epsilon = 0, 1.
     ewma_reward = 0
+
+    reward_queue = queue.Queue(maxsize=100)
+    reward_queue_sum = 0
+
     for episode in range(args.episode):
         total_reward = 0
         state = env.reset()
@@ -205,6 +210,17 @@ def train(args, env, agent, writer):
                     .format(total_steps, episode, t, total_reward, ewma_reward,
                             epsilon))
                 break
+
+        reward_queue_sum = reward_queue_sum + total_reward
+
+        if reward_queue.full():
+            reward_queue_sum = reward_queue_sum - reward_queue.get()
+        
+        reward_queue.put(total_reward)
+
+        if (reward_queue_sum / 100) > 200:
+            break
+
     env.close()
 
 
