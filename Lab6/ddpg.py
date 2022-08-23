@@ -310,7 +310,8 @@ def test(args, env, agent, writer):
                     break
 
         # raise NotImplementedError
-        
+    
+    print("Rewards: ", rewards)
     print('Average Reward: ', np.mean(rewards))
     env.close()
 
