@@ -99,8 +99,7 @@ class DQN:
         # raise NotImplementedError
 
     def append(self, state, action, reward, next_state, done):
-        self._memory.append(state, [action], [reward / 10], next_state,
-                            [int(done)])
+        self._memory.append(state, [action], [reward / 10], next_state, [int(done)])
 
     def update(self, total_steps):
         if total_steps % self.freq == 0:
@@ -114,12 +113,6 @@ class DQN:
             self.batch_size, self.device)
 
         ## TODO ##
-        # q_value = ?
-        # with torch.no_grad():
-        #    q_next = ?
-        #    q_target = ?
-        # criterion = ?
-        # loss = criterion(q_value, q_target)
 
         q_value = self._behavior_net(state).gather(1, action.long())
 

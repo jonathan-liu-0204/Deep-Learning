@@ -109,9 +109,6 @@ class DDPG:
         self._target_critic_net.load_state_dict(self._critic_net.state_dict())
         ## TODO ##
 
-        # self._actor_opt = ?
-        # self._critic_opt = ?
-
         self._actor_opt = optim.Adam(self._actor_net.parameters(), lr=args.lra)
         self._critic_opt = optim.Adam(self._critic_net.parameters(), lr=args.lrc)
 
@@ -164,13 +161,6 @@ class DDPG:
         ## update critic ##
         # critic loss
         ## TODO ##
-        # q_value = ?
-        # with torch.no_grad():
-        #    a_next = ?
-        #    q_next = ?
-        #    q_target = ?
-        # criterion = ?
-        # critic_loss = criterion(q_value, q_target)
 
         q_value = critic_net(state, action)
 
@@ -192,9 +182,7 @@ class DDPG:
         ## update actor ##
         # actor loss
         ## TODO ##
-        # action = ?
-        # actor_loss = ?
-
+        
         action = actor_net(state)
         actor_loss = -critic_net(state, action).mean()
 
