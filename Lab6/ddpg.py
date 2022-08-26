@@ -3,6 +3,7 @@ from collections import deque
 import itertools
 import random
 import time
+import queue
 
 import gym
 import numpy as np
@@ -236,6 +237,10 @@ def train(args, env, agent, writer):
     print('Start Training')
     total_steps = 0
     ewma_reward = 0
+
+    reward_queue = queue.Queue(maxsize=100)
+    reward_queue_sum = 0
+
     for episode in range(args.episode):
         total_reward = 0
         state = env.reset()
@@ -257,15 +262,23 @@ def train(args, env, agent, writer):
             total_steps += 1
             if done:
                 ewma_reward = 0.05 * total_reward + (1 - 0.05) * ewma_reward
-                writer.add_scalar('Train/Episode Reward', total_reward,
-                                  total_steps)
-                writer.add_scalar('Train/Ewma Reward', ewma_reward,
-                                  total_steps)
+                writer.add_scalar('Train/Episode Reward', total_reward, total_steps)
+                writer.add_scalar('Train/Ewma Reward', ewma_reward, total_steps)
                 print(
                     'Step: {}\tEpisode: {}\tLength: {:3d}\tTotal reward: {:.2f}\tEwma reward: {:.2f}'
-                    .format(total_steps, episode, t, total_reward,
-                            ewma_reward))
+                    .format(total_steps, episode, t, total_reward, ewma_reward))
                 break
+        
+        reward_queue_sum = reward_queue_sum + total_reward
+
+        if reward_queue.full():
+            reward_queue_sum = reward_queue_sum - reward_queue.get()
+        
+        reward_queue.put(total_reward)
+
+        if (reward_queue_sum / 100) > 270:
+            break
+
     env.close()
 
 
@@ -312,7 +325,7 @@ def main():
     parser.add_argument('--logdir', default='log/ddpg')
     # train
     parser.add_argument('--warmup', default=10000, type=int)
-    parser.add_argument('--episode', default=2000, type=int)
+    parser.add_argument('--episode', default=2500, type=int)
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--capacity', default=500000, type=int)
     parser.add_argument('--lra', default=1e-3, type=float)
