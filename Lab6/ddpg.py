@@ -328,8 +328,8 @@ def main():
     parser.add_argument('--episode', default=2500, type=int)
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--capacity', default=500000, type=int)
-    parser.add_argument('--lra', default=1e-3, type=float)
-    parser.add_argument('--lrc', default=1e-3, type=float)
+    parser.add_argument('--lra', default=0.0005, type=float)
+    parser.add_argument('--lrc', default=0.0005, type=float)
     parser.add_argument('--gamma', default=.99, type=float)
     parser.add_argument('--tau', default=.005, type=float)
     # test
