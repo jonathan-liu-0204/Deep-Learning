@@ -138,8 +138,7 @@ class DDPG:
         raise NotImplementedError
 
     def append(self, state, action, reward, next_state, done):
-        self._memory.append(state, action, [reward / 100], next_state,
-                            [int(done)])
+        self._memory.append(state, action, [reward / 100], next_state, [int(done)])
 
     def update(self):
         # update the behavior networks
@@ -151,7 +150,8 @@ class DDPG:
                                     self.tau)
 
     def _update_behavior_network(self, gamma):
-        actor_net, critic_net, target_actor_net, target_critic_net = self._actor_net, self._critic_net, self._target_actor_net, self._target_critic_net
+        actor_net, critic_net  = self._actor_net, self._critic_net
+        target_actor_net, target_critic_net = self._target_actor_net, self._target_critic_net
         actor_opt, critic_opt = self._actor_opt, self._critic_opt
 
         # sample a minibatch of transitions

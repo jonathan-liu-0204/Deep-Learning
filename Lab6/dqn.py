@@ -210,7 +210,7 @@ def train(args, env, agent, writer):
         
         reward_queue.put(total_reward)
 
-        if (reward_queue_sum / 100) > 200:
+        if (reward_queue_sum / 100) > 250:
             break
 
     env.close()
